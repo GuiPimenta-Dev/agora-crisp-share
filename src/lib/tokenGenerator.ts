@@ -1,5 +1,11 @@
 
 import { RtcTokenBuilder, RtcRole } from "agora-access-token";
+// Import Buffer from the buffer package
+import { Buffer } from "buffer";
+
+// Make Buffer available globally for agora-access-token
+// This is needed because the library expects Buffer to be available
+window.Buffer = Buffer;
 
 const APP_ID = "59e4804bae414795a2097e9525b27c33";
 const APP_CERTIFICATE = "55d06787c77a4e43981b5bf290e91890";
@@ -15,12 +21,22 @@ export function generateToken(channelName: string, uid: number = 0): string {
   const currentTimestamp = Math.floor(Date.now() / 1000);
   const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
 
-  return RtcTokenBuilder.buildTokenWithUid(
-    APP_ID,
-    APP_CERTIFICATE,
-    channelName,
-    uid,
-    RtcRole.PUBLISHER,
-    privilegeExpiredTs
-  );
+  // Ensure channelName is valid
+  if (!channelName || channelName.trim() === "") {
+    throw new Error("Channel name must not be empty");
+  }
+
+  try {
+    return RtcTokenBuilder.buildTokenWithUid(
+      APP_ID,
+      APP_CERTIFICATE,
+      channelName,
+      uid,
+      RtcRole.PUBLISHER,
+      privilegeExpiredTs
+    );
+  } catch (error) {
+    console.error("Token generation error:", error);
+    throw new Error("Failed to generate token. Please check your configuration.");
+  }
 }

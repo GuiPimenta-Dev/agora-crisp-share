@@ -42,6 +42,7 @@
     "@tanstack/react-query": "^5.56.2",
     "agora-access-token": "^2.0.4",
     "agora-rtc-sdk-ng": "^4.23.3",
+    "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",

@@ -13,6 +13,7 @@ const MeetingJoin = () => {
   const [token, setToken] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [isGeneratingToken, setIsGeneratingToken] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
   const { joinAudioCall } = useAgora();
   const { toast } = useToast();
 
@@ -24,8 +25,15 @@ const MeetingJoin = () => {
   }, [channelName]);
 
   const handleGenerateToken = () => {
+    if (!channelName.trim()) {
+      setTokenError("Channel name is required to generate a token");
+      return;
+    }
+    
+    setTokenError(null);
+    setIsGeneratingToken(true);
+    
     try {
-      setIsGeneratingToken(true);
       const newToken = generateToken(channelName);
       setToken(newToken);
       toast({
@@ -34,6 +42,7 @@ const MeetingJoin = () => {
       });
     } catch (error) {
       console.error("Error generating token:", error);
+      setTokenError(error instanceof Error ? error.message : "Unknown error generating token");
       toast({
         title: "Token Generation Failed",
         description: "Could not generate authentication token. Please try again.",
@@ -120,6 +129,11 @@ const MeetingJoin = () => {
                 onChange={(e) => setToken(e.target.value)}
                 className="w-full font-mono text-xs"
               />
+              {tokenError && (
+                <p className="text-xs text-red-500 mt-1">
+                  {tokenError}
+                </p>
+              )}
               <p className="text-xs text-gray-500">
                 This channel requires token-based authentication to join
               </p>
