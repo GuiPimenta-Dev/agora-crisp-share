@@ -1,4 +1,3 @@
-
 import AgoraRTC, { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
@@ -7,15 +6,15 @@ import AgoraRTC, {
   IRemoteAudioTrack,
   ILocalAudioTrack,
   ILocalTrack,
+  ILocalVideoTrack,
   UID,
-  IScreenVideoTrack
 } from "agora-rtc-sdk-ng";
 
 // Define types for our Agora client state
 export interface AgoraState {
   client?: IAgoraRTCClient;
   localAudioTrack?: IMicrophoneAudioTrack;
-  screenVideoTrack?: IScreenVideoTrack;
+  screenVideoTrack?: ILocalVideoTrack;
   screenShareUserId?: UID;
   remoteUsers: IAgoraRTCRemoteUser[];
   joinState: boolean;
@@ -44,7 +43,7 @@ export const createMicrophoneAudioTrack = async (): Promise<IMicrophoneAudioTrac
 };
 
 // Create screen video track with maximum quality
-export const createScreenVideoTrack = async (): Promise<IScreenVideoTrack> => {
+export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
   return await AgoraRTC.createScreenVideoTrack(
     {
       encoderConfig: {
@@ -54,9 +53,8 @@ export const createScreenVideoTrack = async (): Promise<IScreenVideoTrack> => {
         bitrateMax: 3000 // Higher bitrate for better quality
       },
       optimizationMode: "detail", // Prioritize visual quality
-      screenAudioTrack: false,
     },
-    "auto"
+    "disable"
   );
 };
 
@@ -111,7 +109,7 @@ export const leaveChannel = async (
 // Start screen sharing
 export const startScreenSharing = async (
   client: IAgoraRTCClient,
-  screenVideoTrack: IScreenVideoTrack
+  screenVideoTrack: ILocalVideoTrack
 ) => {
   if (!client || !screenVideoTrack) return;
   
@@ -126,7 +124,7 @@ export const startScreenSharing = async (
 // Stop screen sharing
 export const stopScreenSharing = async (
   client: IAgoraRTCClient,
-  screenVideoTrack: IScreenVideoTrack
+  screenVideoTrack: ILocalVideoTrack
 ) => {
   if (!client || !screenVideoTrack) return;
   
