@@ -80,10 +80,15 @@ export const joinChannel = async (
       return false;
     }
     
+    if (!token) {
+      console.error("Error: Authentication token is required for this channel");
+      throw new Error("Authentication token is required to join this channel. Please provide a valid token.");
+    }
+    
     await client.join(
       APP_ID,
       channel || DEFAULT_CHANNEL,
-      token || null,
+      token,
       uid || null
     );
     

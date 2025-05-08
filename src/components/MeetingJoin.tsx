@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 
 const MeetingJoin = () => {
   const [channelName, setChannelName] = useState("main");
+  const [token, setToken] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const { joinAudioCall } = useAgora();
   const { toast } = useToast();
@@ -18,12 +19,12 @@ const MeetingJoin = () => {
     
     setIsJoining(true);
     try {
-      const joined = await joinAudioCall(channelName);
+      const joined = await joinAudioCall(channelName, token);
       
       if (!joined) {
         toast({
           title: "Failed to join",
-          description: "Could not join the meeting. Please check if the Agora App ID is configured.",
+          description: "Could not join the meeting. Please check if the Agora App ID is configured and the token is valid.",
           variant: "destructive",
         });
       }
@@ -61,6 +62,21 @@ const MeetingJoin = () => {
                 onChange={(e) => setChannelName(e.target.value)}
                 className="w-full"
               />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="token" className="text-sm font-medium">
+                Authentication Token
+              </label>
+              <Input
+                id="token"
+                placeholder="Enter authentication token"
+                value={token}
+                onChange={(e) => setToken(e.target.value)}
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500">
+                This channel requires token-based authentication to join
+              </p>
             </div>
           </div>
         </CardContent>
