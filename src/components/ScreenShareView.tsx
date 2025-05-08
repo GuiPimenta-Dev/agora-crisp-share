@@ -30,12 +30,12 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   const isScreenBeingShared = localSharing || remoteScreenUser;
   
   return (
-    <div className="screen-share-container">
+    <div className="screen-share-container h-full w-full">
       {isScreenBeingShared ? (
         <div ref={remoteVideoRef} className="w-full h-full" />
       ) : (
-        <div className="screen-share-placeholder bg-gradient-to-br from-blue-900/90 to-blue-800/90">
-          <div className="flex flex-col items-center gap-4">
+        <div className="screen-share-placeholder h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-900/90 to-blue-800/90">
+          <div className="flex flex-col items-center gap-4 text-center p-4">
             <Monitor className="h-16 w-16 text-blue-300 opacity-70" />
             <div>
               <h3 className="text-xl font-medium mb-2">No screen is being shared</h3>

@@ -45,18 +45,23 @@ export const createMicrophoneAudioTrack = async (): Promise<IMicrophoneAudioTrac
 
 // Create screen video track with maximum quality
 export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
-  return await AgoraRTC.createScreenVideoTrack(
-    {
-      encoderConfig: {
-        width: { max: 1920, min: 1280 },
-        height: { max: 1080, min: 720 },
-        frameRate: 30,
-        bitrateMax: 3000 // Higher bitrate for better quality
+  try {
+    return await AgoraRTC.createScreenVideoTrack(
+      {
+        encoderConfig: {
+          width: { max: 1920, min: 1280 },
+          height: { max: 1080, min: 720 },
+          frameRate: 30,
+          bitrateMax: 3000 // Higher bitrate for better quality
+        },
+        optimizationMode: "detail", // Prioritize visual quality
       },
-      optimizationMode: "detail", // Prioritize visual quality
-    },
-    "disable"
-  );
+      "disable"
+    );
+  } catch (error) {
+    console.error("Screen sharing permission error:", error);
+    throw new Error("Screen sharing permission denied. Please enable screen sharing permissions in your browser.");
+  }
 };
 
 // Join channel and set up event listeners
@@ -70,7 +75,7 @@ export const joinChannel = async (
   if (!client) return false;
   
   try {
-    if (!APP_ID || APP_ID === "your_agora_app_id_here") {
+    if (!APP_ID) {
       console.error("Error: Agora App ID is not configured");
       return false;
     }
@@ -122,8 +127,10 @@ export const startScreenSharing = async (
   try {
     await client.publish(screenVideoTrack);
     console.log("Screen sharing started");
+    return true;
   } catch (error) {
     console.error("Error starting screen sharing:", error);
+    throw new Error("Failed to publish screen share. Please check your connection.");
   }
 };
 

@@ -270,7 +270,7 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Error starting screen share:", error);
       toast({
         title: "Failed to share screen",
-        description: "Could not start screen sharing. Please check permissions.",
+        description: error instanceof Error ? error.message : "Could not start screen sharing. Please check permissions.",
         variant: "destructive",
       });
     }
