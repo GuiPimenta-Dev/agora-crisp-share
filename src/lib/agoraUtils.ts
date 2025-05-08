@@ -50,7 +50,7 @@ export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
       encoderConfig: {
         width: 2560,        // Largura 2K para melhor qualidade
         height: 1440,       // Altura 2K para melhor qualidade
-        frameRate: 30,      // 30 fps para movimento suave
+        frameRate: 60,      // 30 fps para movimento suave
         bitrateMax: 5000,   // 5 Mbps para melhor qualidade visual
       },
       optimizationMode: "detail", // Prioriza qualidade visual
