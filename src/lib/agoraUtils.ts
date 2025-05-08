@@ -22,7 +22,7 @@ export interface AgoraState {
 }
 
 // Define channel and app ID
-const APP_ID = "your_agora_app_id_here"; // Replace with your actual Agora App ID
+const APP_ID = "59e4804bae414795a2097e9525b27c33"; // Agora App ID
 const DEFAULT_CHANNEL = "main";
 
 // Create Agora client with optimal settings for audio and screen sharing
