@@ -1,4 +1,3 @@
-
 import AgoraRTC, { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
@@ -42,7 +41,7 @@ export const createMicrophoneAudioTrack = async (): Promise<IMicrophoneAudioTrac
   });
 };
 
-// Create screen video track with high quality settings but compatible constraints
+// Create screen video track with ultra high quality settings (4K)
 export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
   const tryCreateTrack = async (width: number, height: number, label: string): Promise<ILocalVideoTrack | null> => {
     try {
@@ -51,31 +50,36 @@ export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
           encoderConfig: {
             width,
             height,
-            frameRate: 60,
-            bitrateMax: 8000 // maior qualidade possível
+            frameRate: 30,
+            bitrateMax: 5000 // 5 Mbps para alta qualidade
           },
-          optimizationMode: "motion", // fluidez é prioridade no LoL
+          optimizationMode: "detail", // priorizar detalhes e qualidade
           screenSourceType: "screen"
         },
         "disable" // sem áudio da aba
       );
-      console.log(`✅ Compartilhamento iniciado em ${label} @60FPS`);
+      console.log(`✅ Compartilhamento iniciado em ${label} @30FPS`);
       return track;
     } catch (error) {
-      console.warn(`⚠️ Falha ao iniciar ${label} @60FPS:`, error);
+      console.warn(`⚠️ Falha ao iniciar ${label} @30FPS:`, error);
       return null;
     }
   };
 
-  // 1. Tenta em 2K (2560x1440)
-  let track = await tryCreateTrack(2560, 1440, "2K");
+  // 1. Tenta em 4K (3840x2160)
+  let track = await tryCreateTrack(3840, 2160, "4K");
 
-  // 2. Fallback para 1080p
+  // 2. Fallback para 2K (2560x1440)
+  if (!track) {
+    track = await tryCreateTrack(2560, 1440, "2K");
+  }
+
+  // 3. Fallback para 1080p
   if (!track) {
     track = await tryCreateTrack(1920, 1080, "1080p");
   }
 
-  // 3. Se ainda falhar, erro final
+  // 4. Se ainda falhar, erro final
   if (!track) {
     throw new Error("❌ Não foi possível iniciar o compartilhamento de tela. Verifique as permissões do navegador ou a resolução suportada.");
   }
