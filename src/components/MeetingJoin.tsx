@@ -1,69 +1,29 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAgora } from "@/context/AgoraContext";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { generateToken } from "@/lib/tokenGenerator";
 
 const MeetingJoin = () => {
   const [channelName, setChannelName] = useState("main");
-  const [token, setToken] = useState("");
   const [isJoining, setIsJoining] = useState(false);
-  const [isGeneratingToken, setIsGeneratingToken] = useState(false);
-  const [tokenError, setTokenError] = useState<string | null>(null);
   const { joinAudioCall } = useAgora();
   const { toast } = useToast();
-
-  // Generate token when channel name changes
-  useEffect(() => {
-    if (channelName.trim()) {
-      handleGenerateToken();
-    }
-  }, [channelName]);
-
-  const handleGenerateToken = () => {
-    if (!channelName.trim()) {
-      setTokenError("Channel name is required to generate a token");
-      return;
-    }
-    
-    setTokenError(null);
-    setIsGeneratingToken(true);
-    
-    try {
-      const newToken = generateToken(channelName);
-      setToken(newToken);
-      toast({
-        title: "Token Generated",
-        description: "A new authentication token has been generated for this channel.",
-      });
-    } catch (error) {
-      console.error("Error generating token:", error);
-      setTokenError(error instanceof Error ? error.message : "Unknown error generating token");
-      toast({
-        title: "Token Generation Failed",
-        description: "Could not generate authentication token. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsGeneratingToken(false);
-    }
-  };
 
   const handleJoin = async () => {
     if (!channelName.trim()) return;
     
     setIsJoining(true);
     try {
-      const joined = await joinAudioCall(channelName, token);
+      const joined = await joinAudioCall(channelName);
       
       if (!joined) {
         toast({
           title: "Failed to join",
-          description: "Could not join the meeting. Please check if the Agora App ID is configured and the token is valid.",
+          description: "Could not join the meeting. Please check if the Agora App ID is configured correctly.",
           variant: "destructive",
         });
       }
@@ -102,49 +62,13 @@ const MeetingJoin = () => {
                 className="w-full"
               />
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label htmlFor="token" className="text-sm font-medium">
-                  Authentication Token
-                </label>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleGenerateToken} 
-                  disabled={isGeneratingToken || !channelName.trim()}
-                  className="h-8 px-2"
-                >
-                  {isGeneratingToken ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                  )}
-                  Regenerate
-                </Button>
-              </div>
-              <Input
-                id="token"
-                placeholder="Enter authentication token"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="w-full font-mono text-xs"
-              />
-              {tokenError && (
-                <p className="text-xs text-red-500 mt-1">
-                  {tokenError}
-                </p>
-              )}
-              <p className="text-xs text-gray-500">
-                This channel requires token-based authentication to join
-              </p>
-            </div>
           </div>
         </CardContent>
         <CardFooter>
           <Button 
             className="w-full" 
             onClick={handleJoin} 
-            disabled={isJoining || !channelName.trim() || !token.trim()}
+            disabled={isJoining || !channelName.trim()}
           >
             {isJoining ? (
               <>

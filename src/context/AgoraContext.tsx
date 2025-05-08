@@ -20,7 +20,7 @@ import { useToast } from "@/components/ui/use-toast";
 
 interface AgoraContextType {
   agoraState: AgoraState;
-  joinAudioCall: (channelName: string, token?: string) => Promise<boolean>;
+  joinAudioCall: (channelName: string) => Promise<boolean>;
   leaveAudioCall: () => Promise<void>;
   toggleMute: () => void;
   startScreenShare: () => Promise<void>;
@@ -140,7 +140,7 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, [toast]);
 
-  const joinAudioCall = async (channelName: string, token?: string): Promise<boolean> => {
+  const joinAudioCall = async (channelName: string): Promise<boolean> => {
     if (!agoraState.client) {
       toast({
         title: "Error",
@@ -156,7 +156,6 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
       const joined = await joinChannel(
         agoraState.client,
         channelName,
-        token || null,
         null,
         localAudioTrack
       );
@@ -179,7 +178,7 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
       console.error("Error joining audio call:", error);
       toast({
         title: "Failed to join",
-        description: "Could not join the audio call. Please check permissions and token validity.",
+        description: "Could not join the audio call. Please check permissions.",
         variant: "destructive",
       });
       return false;

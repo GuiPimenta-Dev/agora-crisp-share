@@ -66,7 +66,6 @@ export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
 export const joinChannel = async (
   client: IAgoraRTCClient,
   channel: string,
-  token: string | null,
   uid: string | null,
   localAudioTrack: IMicrophoneAudioTrack
 ) => {
@@ -78,15 +77,10 @@ export const joinChannel = async (
       return false;
     }
     
-    if (!token) {
-      console.error("Error: Authentication token is required for this channel");
-      throw new Error("Authentication token is required to join this channel. Please provide a valid token.");
-    }
-    
     await client.join(
       APP_ID,
       channel || DEFAULT_CHANNEL,
-      token,
+      null,
       uid || null
     );
     
