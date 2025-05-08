@@ -7,7 +7,7 @@ import { Buffer } from "buffer";
 // This is needed because the library expects Buffer to be available
 window.Buffer = Buffer;
 
-const APP_ID = "59e4804bae414795a2097e9525b27c33";
+const APP_ID = "52556fe6809a4624b3227a074c550aca";
 const APP_CERTIFICATE = "55d06787c77a4e43981b5bf290e91890";
 
 /**

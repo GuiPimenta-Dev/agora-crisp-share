@@ -1,8 +1,6 @@
-
 import AgoraRTC, { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
-  ICameraVideoTrack, 
   IMicrophoneAudioTrack, 
   IRemoteAudioTrack,
   ILocalAudioTrack,
@@ -22,7 +20,7 @@ export interface AgoraState {
 }
 
 // Define channel and app ID
-const APP_ID = "59e4804bae414795a2097e9525b27c33"; // Agora App ID
+const APP_ID = "52556fe6809a4624b3227a074c550aca"; // Agora App ID
 const DEFAULT_CHANNEL = "main";
 
 // Create Agora client with optimal settings for audio and screen sharing
