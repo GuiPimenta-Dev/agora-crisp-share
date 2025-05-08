@@ -1,7 +1,7 @@
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
-import { Monitor, Share2, Shield } from "lucide-react";
+import { Monitor, Share2, Shield, AlertCircle } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -19,6 +19,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   const { startScreenShare, stopScreenShare } = useAgora();
   const { toast } = useToast();
   const remoteVideoRef = useRef<HTMLDivElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
   
   // Handle remote screen share
   useEffect(() => {
@@ -33,6 +34,9 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   const isScreenBeingShared = localSharing || remoteScreenUser;
 
   const handleScreenShare = async () => {
+    if (isLoading) return; // Prevent multiple clicks
+    
+    setIsLoading(true);
     try {
       toast({
         title: "Iniciando compartilhamento",
@@ -50,6 +54,8 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
         description: "Verifique se você concedeu permissões de compartilhamento de tela e tente novamente.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
   
@@ -80,9 +86,19 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
               <Button
                 className="mt-6"
                 onClick={localSharing ? stopScreenShare : handleScreenShare}
+                disabled={isLoading}
               >
-                <Share2 className="h-4 w-4 mr-2" />
-                Compartilhar sua tela
+                {isLoading ? (
+                  <>
+                    <AlertCircle className="h-4 w-4 mr-2 animate-pulse" />
+                    Aguarde...
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Compartilhar sua tela
+                  </>
+                )}
               </Button>
             </div>
           </div>
