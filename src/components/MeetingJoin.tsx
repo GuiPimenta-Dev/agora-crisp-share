@@ -1,18 +1,48 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAgora } from "@/context/AgoraContext";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { generateToken } from "@/lib/tokenGenerator";
 
 const MeetingJoin = () => {
   const [channelName, setChannelName] = useState("main");
   const [token, setToken] = useState("");
   const [isJoining, setIsJoining] = useState(false);
+  const [isGeneratingToken, setIsGeneratingToken] = useState(false);
   const { joinAudioCall } = useAgora();
   const { toast } = useToast();
+
+  // Generate token when channel name changes
+  useEffect(() => {
+    if (channelName.trim()) {
+      handleGenerateToken();
+    }
+  }, [channelName]);
+
+  const handleGenerateToken = () => {
+    try {
+      setIsGeneratingToken(true);
+      const newToken = generateToken(channelName);
+      setToken(newToken);
+      toast({
+        title: "Token Generated",
+        description: "A new authentication token has been generated for this channel.",
+      });
+    } catch (error) {
+      console.error("Error generating token:", error);
+      toast({
+        title: "Token Generation Failed",
+        description: "Could not generate authentication token. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingToken(false);
+    }
+  };
 
   const handleJoin = async () => {
     if (!channelName.trim()) return;
@@ -64,15 +94,31 @@ const MeetingJoin = () => {
               />
             </div>
             <div className="space-y-2">
-              <label htmlFor="token" className="text-sm font-medium">
-                Authentication Token
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="token" className="text-sm font-medium">
+                  Authentication Token
+                </label>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={handleGenerateToken} 
+                  disabled={isGeneratingToken || !channelName.trim()}
+                  className="h-8 px-2"
+                >
+                  {isGeneratingToken ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                  )}
+                  Regenerate
+                </Button>
+              </div>
               <Input
                 id="token"
                 placeholder="Enter authentication token"
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
-                className="w-full"
+                className="w-full font-mono text-xs"
               />
               <p className="text-xs text-gray-500">
                 This channel requires token-based authentication to join
@@ -84,7 +130,7 @@ const MeetingJoin = () => {
           <Button 
             className="w-full" 
             onClick={handleJoin} 
-            disabled={isJoining || !channelName.trim()}
+            disabled={isJoining || !channelName.trim() || !token.trim()}
           >
             {isJoining ? (
               <>
