@@ -1,3 +1,4 @@
+
 import AgoraRTC, { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
@@ -41,18 +42,14 @@ export const createMicrophoneAudioTrack = async (): Promise<IMicrophoneAudioTrac
   });
 };
 
-// Create screen video track with maximum quality
+// Create screen video track with compatible settings
 export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
   try {
+    // Using simpler constraints that are more widely supported
     return await AgoraRTC.createScreenVideoTrack(
       {
-        encoderConfig: {
-          width: { max: 1920, min: 1280 },
-          height: { max: 1080, min: 720 },
-          frameRate: 30,
-          bitrateMax: 3000 // Higher bitrate for better quality
-        },
-        optimizationMode: "detail", // Prioritize visual quality
+        encoderConfig: "1080p_1", // Use predefined quality profile instead of detailed constraints
+        optimizationMode: "detail",
       },
       "disable"
     );

@@ -4,6 +4,7 @@ import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { Monitor, Share2 } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ScreenShareViewProps {
   localSharing: boolean;
@@ -15,6 +16,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   remoteScreenUser,
 }) => {
   const { startScreenShare, stopScreenShare } = useAgora();
+  const { toast } = useToast();
   const remoteVideoRef = useRef<HTMLDivElement>(null);
   
   // Handle remote screen share
@@ -28,6 +30,19 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   }, [remoteScreenUser]);
   
   const isScreenBeingShared = localSharing || remoteScreenUser;
+
+  const handleScreenShare = async () => {
+    try {
+      await startScreenShare();
+    } catch (error) {
+      console.error("Screen sharing error:", error);
+      toast({
+        title: "Screen Sharing Failed",
+        description: "Please make sure you've granted screen sharing permissions and try again.",
+        variant: "destructive",
+      });
+    }
+  };
   
   return (
     <div className="screen-share-container h-full w-full">
@@ -45,7 +60,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
               
               <Button
                 className="mt-6"
-                onClick={localSharing ? stopScreenShare : startScreenShare}
+                onClick={localSharing ? stopScreenShare : handleScreenShare}
               >
                 <Share2 className="h-4 w-4 mr-2" />
                 Share Your Screen
