@@ -45,7 +45,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
       await startScreenShare();
       toast({
         title: "Compartilhamento ativo",
-        description: "Seu conteúdo está sendo transmitido em alta qualidade (1080p)",
+        description: "Seu conteúdo está sendo transmitido em ultra HD (2K/1440p)",
       });
     } catch (error) {
       console.error("Screen sharing error:", error);
@@ -68,7 +68,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
             <div className="absolute bottom-3 left-3">
               <Badge variant="secondary" className="bg-blue-600/90 text-white px-3 py-1.5 flex items-center gap-1.5">
                 <Shield className="h-3.5 w-3.5" />
-                <span>HD 1080p</span>
+                <span>Ultra HD 2K</span>
               </Badge>
             </div>
           )}
@@ -80,7 +80,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
             <div>
               <h3 className="text-xl font-medium mb-2">Nenhuma tela está sendo compartilhada</h3>
               <p className="text-blue-200 max-w-md">
-                Clique no botão abaixo para compartilhar sua tela com alta resolução (1080p)
+                Clique no botão abaixo para compartilhar sua tela com ultra alta resolução (2K/1440p)
               </p>
               
               <Button

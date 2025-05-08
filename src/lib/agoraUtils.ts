@@ -45,22 +45,18 @@ export const createMicrophoneAudioTrack = async (): Promise<IMicrophoneAudioTrac
 // Create screen video track with high quality settings but compatible constraints
 export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
   try {
-    // Using a predefined quality profile to avoid browser compatibility issues
-    // while still maintaining good quality
-    return await AgoraRTC.createScreenVideoTrack(
-      {
-        // Use encoderConfig without min constraints that cause errors
-        encoderConfig: {
-          width: 1920,
-          height: 1080,
-          frameRate: 30,
-          bitrateMax: 5000, // Higher bitrate for better quality (5 Mbps)
-          bitrateMin: 1500  // Minimum bitrate to maintain quality
-        },
-        optimizationMode: "detail", // Prioritize visual quality
-        screenSourceType: "screen" // Focus on screen content
+    // Usando as configurações de alta resolução sugeridas (2K/1440p)
+    return await AgoraRTC.createScreenVideoTrack({
+      encoderConfig: {
+        width: 2560,        // Largura 2K para melhor qualidade
+        height: 1440,       // Altura 2K para melhor qualidade
+        frameRate: 30,      // 30 fps para movimento suave
+        bitrateMax: 5000,   // 5 Mbps para melhor qualidade visual
       },
-      "disable"
+      optimizationMode: "detail", // Prioriza qualidade visual
+      screenSourceType: "screen"  // Foca no conteúdo da tela
+    }, 
+    "disable" // Não captura áudio da tela
     );
   } catch (error) {
     console.error("Screen sharing permission error:", error);
