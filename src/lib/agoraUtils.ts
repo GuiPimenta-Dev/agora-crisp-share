@@ -44,24 +44,43 @@ export const createMicrophoneAudioTrack = async (): Promise<IMicrophoneAudioTrac
 
 // Create screen video track with high quality settings but compatible constraints
 export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
-  try {
-    // Usando as configurações de alta resolução sugeridas (2K/1440p)
-    return await AgoraRTC.createScreenVideoTrack({
-      encoderConfig: {
-        width: 2560,        // Largura 2K para melhor qualidade
-        height: 1440,       // Altura 2K para melhor qualidade
-        frameRate: 60,      // 30 fps para movimento suave
-        bitrateMax: 5000,   // 5 Mbps para melhor qualidade visual
-      },
-      optimizationMode: "detail", // Prioriza qualidade visual
-      screenSourceType: "screen"  // Foca no conteúdo da tela
-    }, 
-    "disable" // Não captura áudio da tela
-    );
-  } catch (error) {
-    console.error("Screen sharing permission error:", error);
-    throw new Error("Screen sharing permission denied. Please enable screen sharing permissions in your browser.");
+  const tryCreateTrack = async (width: number, height: number, label: string): Promise<ILocalVideoTrack | null> => {
+    try {
+      const track = await AgoraRTC.createScreenVideoTrack(
+        {
+          encoderConfig: {
+            width,
+            height,
+            frameRate: 60,
+            bitrateMax: 8000 // maior qualidade possível
+          },
+          optimizationMode: "motion", // fluidez é prioridade no LoL
+          screenSourceType: "screen"
+        },
+        "disable" // sem áudio da aba
+      );
+      console.log(`✅ Compartilhamento iniciado em ${label} @60FPS`);
+      return track;
+    } catch (error) {
+      console.warn(`⚠️ Falha ao iniciar ${label} @60FPS:`, error);
+      return null;
+    }
+  };
+
+  // 1. Tenta em 2K (2560x1440)
+  let track = await tryCreateTrack(2560, 1440, "2K");
+
+  // 2. Fallback para 1080p
+  if (!track) {
+    track = await tryCreateTrack(1920, 1080, "1080p");
   }
+
+  // 3. Se ainda falhar, erro final
+  if (!track) {
+    throw new Error("❌ Não foi possível iniciar o compartilhamento de tela. Verifique as permissões do navegador ou a resolução suportada.");
+  }
+
+  return track;
 };
 
 // Join channel and set up event listeners
