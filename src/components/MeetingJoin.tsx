@@ -5,18 +5,35 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAgora } from "@/context/AgoraContext";
 import { Loader2 } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
 
 const MeetingJoin = () => {
   const [channelName, setChannelName] = useState("main");
   const [isJoining, setIsJoining] = useState(false);
   const { joinAudioCall } = useAgora();
+  const { toast } = useToast();
 
   const handleJoin = async () => {
     if (!channelName.trim()) return;
     
     setIsJoining(true);
     try {
-      await joinAudioCall(channelName);
+      const joined = await joinAudioCall(channelName);
+      
+      if (!joined) {
+        toast({
+          title: "Failed to join",
+          description: "Could not join the meeting. Please check if the Agora App ID is configured.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error joining meeting:", error);
+      toast({
+        title: "Error",
+        description: "An error occurred while trying to join the meeting.",
+        variant: "destructive",
+      });
     } finally {
       setIsJoining(false);
     }

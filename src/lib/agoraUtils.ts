@@ -1,3 +1,4 @@
+
 import AgoraRTC, { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
@@ -21,7 +22,7 @@ export interface AgoraState {
 }
 
 // Define channel and app ID
-const APP_ID = ""; // You'll need to provide your Agora App ID
+const APP_ID = "your_agora_app_id_here"; // Replace with your actual Agora App ID
 const DEFAULT_CHANNEL = "main";
 
 // Create Agora client with optimal settings for audio and screen sharing
@@ -69,6 +70,11 @@ export const joinChannel = async (
   if (!client) return false;
   
   try {
+    if (!APP_ID || APP_ID === "your_agora_app_id_here") {
+      console.error("Error: Agora App ID is not configured");
+      return false;
+    }
+    
     await client.join(
       APP_ID,
       channel || DEFAULT_CHANNEL,
