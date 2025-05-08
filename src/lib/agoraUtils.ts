@@ -42,14 +42,21 @@ export const createMicrophoneAudioTrack = async (): Promise<IMicrophoneAudioTrac
   });
 };
 
-// Create screen video track with compatible settings
+// Create screen video track with high quality settings
 export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
   try {
-    // Using simpler constraints that are more widely supported
     return await AgoraRTC.createScreenVideoTrack(
       {
-        encoderConfig: "1080p_1", // Use predefined quality profile instead of detailed constraints
-        optimizationMode: "detail",
+        // Use custom encoderConfig for higher quality
+        encoderConfig: {
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+          frameRate: { ideal: 30, min: 15 },
+          bitrateMax: 5000, // Higher bitrate for better quality (5 Mbps)
+          bitrateMin: 1500  // Minimum bitrate to maintain quality
+        },
+        optimizationMode: "detail", // Prioritize visual quality
+        screenSourceType: "screen" // Focus on screen content
       },
       "disable"
     );
