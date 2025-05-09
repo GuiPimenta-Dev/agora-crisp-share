@@ -204,6 +204,74 @@ export type Database = {
           },
         ]
       }
+      meeting_participants: {
+        Row: {
+          audio_enabled: boolean
+          avatar: string
+          created_at: string
+          id: string
+          meeting_id: string
+          name: string
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audio_enabled?: boolean
+          avatar: string
+          created_at?: string
+          id?: string
+          meeting_id: string
+          name: string
+          role: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audio_enabled?: boolean
+          avatar?: string
+          created_at?: string
+          id?: string
+          meeting_id?: string
+          name?: string
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_participants_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meetings: {
+        Row: {
+          coach_id: string
+          created_at: string
+          id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       monthly_highlights: {
         Row: {
           adc: string

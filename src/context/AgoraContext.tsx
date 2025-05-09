@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useRef } from "react";
+import React, { createContext, useContext, useState, useRef, useEffect } from "react";
 import AgoraRTC, { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { createClient } from "@/lib/agoraUtils";
 import { AgoraState, AgoraContextType } from "@/types/agora";
@@ -11,6 +11,7 @@ import { useScreenRecording } from "@/hooks/useScreenRecording";
 import { generateShareableLink } from "@/lib/tokenGenerator";
 import { useToast } from "@/hooks/use-toast";
 import { MeetingUser } from "@/types/meeting";
+import { callGetParticipants } from "@/api/MeetingApiRoutes";
 
 const AgoraContext = createContext<AgoraContextType | undefined>(undefined);
 
@@ -97,6 +98,25 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return generateShareableLink(agoraState.channelName);
   };
 
+  // Fetch participants when channel name changes
+  useEffect(() => {
+    const fetchParticipants = async () => {
+      if (agoraState.channelName) {
+        const result = await callGetParticipants(agoraState.channelName);
+        if (result.success && result.participants) {
+          setParticipants(prev => ({
+            ...prev,
+            ...result.participants
+          }));
+        }
+      }
+    };
+
+    if (agoraState.channelName) {
+      fetchParticipants();
+    }
+  }, [agoraState.channelName]);
+
   const joinWithUser = async (channelName: string, user: MeetingUser) => {
     setCurrentUser(user);
     
@@ -128,7 +148,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     downloadRecording,
     isScreenRecording,
     toggleScreenRecording,
-    // New meeting functionality
+    // Meeting functionality
     currentUser,
     participants,
     setParticipants,

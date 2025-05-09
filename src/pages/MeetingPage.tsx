@@ -24,10 +24,12 @@ const MeetingPage: React.FC = () => {
     }
     
     const userId = localStorage.getItem("userId") || `user-${Date.now()}`;
-    const userName = localStorage.getItem("userName") || "Guest User";
-    const userAvatar = localStorage.getItem("userAvatar") || "https://ui-avatars.com/api/?name=Guest+User";
+    localStorage.setItem("userId", userId); // Save for future use
     
-    // Quick mock for testing - you would get this from your auth system
+    const userName = localStorage.getItem("userName") || "Guest User";
+    const userAvatar = localStorage.getItem("userAvatar") || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`;
+    
+    // Mock user for testing - you would get this from your auth system
     const mockUser = {
       id: userId,
       name: userName,
@@ -43,6 +45,11 @@ const MeetingPage: React.FC = () => {
           await joinWithUser(meetingId, result.user);
         } else {
           setError(result.error || "Failed to join meeting");
+          toast({
+            title: "Error",
+            description: result.error || "Failed to join meeting",
+            variant: "destructive"
+          });
         }
       } catch (err) {
         console.error("Error joining meeting:", err);

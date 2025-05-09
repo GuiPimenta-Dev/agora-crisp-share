@@ -1,13 +1,25 @@
 
 import { CreateMeetingRequest, JoinMeetingRequest, MeetingUser } from "@/types/meeting";
-import { createMeeting, getMeeting, addParticipant, removeParticipant } from "@/lib/meetingStore";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Create a new meeting
  */
 export const apiCreateMeeting = async (data: CreateMeetingRequest) => {
   try {
-    const meeting = createMeeting(data);
+    // Insert meeting into Supabase
+    const { data: meeting, error } = await supabase
+      .from("meetings")
+      .insert({
+        id: data.id,
+        coach_id: data.coach_id,
+        student_id: data.student_id
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
     return { success: true, meeting };
   } catch (error: any) {
     console.error("Failed to create meeting:", error);
@@ -25,13 +37,54 @@ export const apiJoinMeeting = async (channelId: string, data: JoinMeetingRequest
   channelId?: string;
 }> => {
   try {
-    const meeting = getMeeting(channelId);
+    // Get meeting from Supabase
+    const { data: meeting, error: meetingError } = await supabase
+      .from("meetings")
+      .select()
+      .eq("id", channelId)
+      .single();
     
-    if (!meeting) {
+    if (meetingError) {
       return { success: false, error: `Meeting ${channelId} not found` };
     }
     
-    const user = addParticipant(channelId, data.id, data.name, data.avatar);
+    // Determine role and audio permissions
+    let role = "listener";
+    let audioEnabled = false;
+    
+    if (data.id === meeting.coach_id) {
+      role = "coach";
+      audioEnabled = true;
+    } else if (data.id === meeting.student_id) {
+      role = "student";
+      audioEnabled = true;
+    }
+    
+    // Create user object
+    const user: MeetingUser = {
+      id: data.id,
+      name: data.name,
+      avatar: data.avatar,
+      role,
+      audioEnabled
+    };
+    
+    // Add participant to the meeting in Supabase
+    const { error: participantError } = await supabase
+      .from("meeting_participants")
+      .upsert({
+        meeting_id: channelId,
+        user_id: data.id,
+        name: data.name,
+        avatar: data.avatar,
+        role,
+        audio_enabled: audioEnabled
+      });
+    
+    if (participantError) {
+      console.error("Failed to add participant:", participantError);
+      // Continue anyway, as this is not critical
+    }
     
     return { 
       success: true, 
@@ -49,10 +102,51 @@ export const apiJoinMeeting = async (channelId: string, data: JoinMeetingRequest
  */
 export const apiLeaveMeeting = async (channelId: string, userId: string) => {
   try {
-    removeParticipant(channelId, userId);
+    // Remove participant from Supabase
+    const { error } = await supabase
+      .from("meeting_participants")
+      .delete()
+      .match({ meeting_id: channelId, user_id: userId });
+    
+    if (error) {
+      console.error("Error removing participant:", error);
+      // Continue anyway as this is not critical
+    }
+    
     return { success: true };
   } catch (error: any) {
     console.error("Failed to leave meeting:", error);
     return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get all participants in a meeting
+ */
+export const apiGetParticipants = async (meetingId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from("meeting_participants")
+      .select()
+      .eq("meeting_id", meetingId);
+    
+    if (error) throw error;
+    
+    // Convert array to record object as expected by the application
+    const participants: Record<string, MeetingUser> = {};
+    data.forEach(participant => {
+      participants[participant.user_id] = {
+        id: participant.user_id,
+        name: participant.name,
+        avatar: participant.avatar,
+        role: participant.role as "coach" | "student" | "listener",
+        audioEnabled: participant.audio_enabled
+      };
+    });
+    
+    return { success: true, participants };
+  } catch (error: any) {
+    console.error("Failed to get participants:", error);
+    return { success: false, error: error.message, participants: {} };
   }
 };
