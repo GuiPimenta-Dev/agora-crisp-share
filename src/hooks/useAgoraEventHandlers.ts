@@ -1,5 +1,4 @@
 
-import { useEffect } from "react";
 import { AgoraState } from "@/types/agora";
 import { MeetingUser } from "@/types/meeting";
 import { useAgoraPresenceSync } from "./useAgoraPresenceSync";
