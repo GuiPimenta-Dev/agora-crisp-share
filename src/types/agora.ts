@@ -13,6 +13,7 @@ export interface AgoraState {
   channelName?: string;
   recordingId?: string;
   participants?: Record<string, MeetingUser>;
+  joinAudioCallFunc?: (channelName: string, audioEnabled: boolean) => Promise<boolean>;
 }
 
 export interface AgoraContextType {

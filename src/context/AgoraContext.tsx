@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useRef, useEffect } from "react";
-import AgoraRTC, { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
-import { createClient } from "@/lib/agoraUtils";
+
+import React, { createContext, useContext } from "react";
+import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { AgoraState, AgoraContextType } from "@/types/agora";
 import { useAgoraAudioCall } from "@/hooks/useAgoraAudioCall";
 import { useAgoraScreenShare } from "@/hooks/useAgoraScreenShare";
@@ -8,9 +8,12 @@ import { useAgoraEventHandlers } from "@/hooks/useAgoraEventHandlers";
 import { useAgoraRecording } from "@/hooks/useAgoraRecording";
 import { useScreenRecording } from "@/hooks/useScreenRecording";
 import { generateShareableLink } from "@/lib/tokenGenerator";
-import { toast } from "@/hooks/use-toast";
 import { MeetingUser } from "@/types/meeting";
-import { callGetParticipants } from "@/api/MeetingApiRoutes";
+import { AgoraProviderProps } from "@/types/agoraContext";
+import { useAgoraState } from "@/hooks/useAgoraState";
+import { useAgoraInit } from "@/hooks/useAgoraInit";
+import { useAgoraParticipants, refreshParticipants as refreshParticipantsFn } from "@/hooks/useAgoraParticipants";
+import { useJoinMeeting } from "@/hooks/useJoinMeeting";
 
 const AgoraContext = createContext<AgoraContextType | undefined>(undefined);
 
@@ -22,84 +25,38 @@ export const useAgora = () => {
   return context;
 };
 
-export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // State management
-  const [agoraState, setAgoraState] = useState<AgoraState>({
-    client: undefined,
-    localAudioTrack: undefined,
-    screenVideoTrack: undefined,
-    screenShareUserId: undefined,
-    remoteUsers: [],
-    joinState: false,
-    isRecording: false,
-    participants: {},
+export const AgoraProvider: React.FC<AgoraProviderProps> = ({ children }) => {
+  // Initialize all state using our custom hook
+  const stateManager = useAgoraState();
+  const {
+    agoraState, 
+    setAgoraState,
+    isMuted, 
+    setIsMuted,
+    isScreenSharing, 
+    setIsScreenSharing,
+    currentUser, 
+    setCurrentUser,
+    participants, 
+    setParticipants,
+    clientRef,
+    leaveInProgress,
+    clientInitialized,
+    setClientInitialized,
+    joinInProgress,
+    setJoinInProgress,
+    participantsLastUpdated,
+    setParticipantsLastUpdated
+  } = stateManager;
+
+  // Initialize Agora client
+  useAgoraInit({
+    agoraState, 
+    setAgoraState, 
+    clientRef, 
+    setClientInitialized,
+    leaveInProgress
   });
-
-  const [isMuted, setIsMuted] = useState(false);
-  const [isScreenSharing, setIsScreenSharing] = useState(false);
-  const [currentUser, setCurrentUser] = useState<MeetingUser | null>(null);
-  const [participants, setParticipants] = useState<Record<string, MeetingUser>>({});
-  const [clientInitialized, setClientInitialized] = useState(false);
-  const [joinInProgress, setJoinInProgress] = useState(false);
-  const clientRef = useRef<IAgoraRTCClient | undefined>();
-  const [participantsLastUpdated, setParticipantsLastUpdated] = useState<number>(Date.now());
-  const leaveInProgress = useRef<boolean>(false);
-
-  // Initialize Agora client immediately on component mount
-  useEffect(() => {
-    const initializeClient = async () => {
-      try {
-        console.log("Initializing Agora client...");
-        const client = createClient();
-        clientRef.current = client;
-        
-        setAgoraState((prev) => ({
-          ...prev,
-          client
-        }));
-        
-        setClientInitialized(true);
-        console.log("Agora client initialized successfully");
-      } catch (error) {
-        console.error("Failed to initialize Agora client:", error);
-        toast({
-          title: "Error",
-          description: "Failed to initialize audio service. Please refresh the page.",
-          variant: "destructive"
-        });
-      }
-    };
-    
-    initializeClient();
-
-    // Adicionar listener de saída da página para parar gravação e download
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      // Se estiver gravando, parar e fazer download
-      if (agoraState.isRecording && !leaveInProgress.current) {
-        // Impedir saída imediata para permitir download
-        event.preventDefault();
-        event.returnValue = "";
-        
-        // Marcar que estamos saindo para evitar múltiplos downloads
-        leaveInProgress.current = true;
-        
-        // Parar gravação e fazer download
-        stopRecording().then(() => {
-          // A função stopRecording já fará o download automaticamente
-          setTimeout(() => {
-            leaveInProgress.current = false;
-          }, 3000);
-        });
-      }
-      return undefined;
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []);
 
   // Initialize hooks with our shared state
   const { joinAudioCall, leaveAudioCall, toggleMute } = useAgoraAudioCall(
@@ -108,6 +65,14 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setIsMuted,
     setIsScreenSharing
   );
+
+  // Set audio call function in the state so it can be used by joinWithUser
+  if (!agoraState.joinAudioCallFunc && joinAudioCall) {
+    setAgoraState(prev => ({
+      ...prev,
+      joinAudioCallFunc: joinAudioCall
+    }));
+  }
 
   const { startScreenShare, stopScreenShare } = useAgoraScreenShare(
     agoraState,
@@ -133,63 +98,27 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     stopRecording
   );
 
-  // Update participants list when remoteUsers changes or when users join/leave
-  useEffect(() => {
-    const fetchParticipants = async () => {
-      if (agoraState.channelName) {
-        try {
-          const result = await callGetParticipants(agoraState.channelName);
-          if (result.success && result.participants) {
-            // Check for new participants
-            const prevParticipantCount = Object.keys(participants).length;
-            
-            // Também atualizar os participantes no estado do Agora
-            setAgoraState(prev => ({
-              ...prev,
-              participants: result.participants
-            }));
-            
-            setParticipants(result.participants);
-            
-            // Caso novo participante tenha entrado, mostrar um toast
-            const participantCount = Object.keys(result.participants).length;
-            
-            if (participantCount > prevParticipantCount && prevParticipantCount > 0) {
-              const newParticipants = Object.entries(result.participants).filter(
-                ([id]) => !participants[id]
-              );
-              
-              if (newParticipants.length > 0) {
-                // Fixed type error by ensuring newParticipants[0][1] is a MeetingUser
-                const newUser = newParticipants[0][1] as MeetingUser;
-                toast({
-                  title: "Novo participante",
-                  description: `${newUser.name} entrou na chamada`,
-                });
-              }
-            }
-          }
-        } catch (error) {
-          console.error("Failed to fetch participants:", error);
-        }
-      }
-    };
+  // Manage participants
+  useAgoraParticipants({
+    agoraState,
+    setAgoraState,
+    participants,
+    setParticipants,
+    participantsLastUpdated,
+    setParticipantsLastUpdated
+  });
 
-    // Fetch immediately when remote users change
-    if (agoraState.channelName) {
-      fetchParticipants();
-    }
-    
-    // Set up polling for participants update (a cada 5 segundos)
-    const intervalId = setInterval(() => {
-      if (agoraState.channelName) {
-        setParticipantsLastUpdated(Date.now());
-        fetchParticipants();
-      }
-    }, 5000);
-
-    return () => clearInterval(intervalId);
-  }, [agoraState.remoteUsers, agoraState.channelName, participantsLastUpdated, participants]);
+  // Meeting join functionality
+  const { joinWithUser } = useJoinMeeting({
+    agoraState,
+    currentUser,
+    setCurrentUser,
+    participants,
+    setParticipants,
+    setAgoraState,
+    joinInProgress,
+    setJoinInProgress
+  });
 
   // Find remote user who is sharing screen (if any)
   const remoteScreenShareUser = agoraState.remoteUsers.find(
@@ -204,137 +133,14 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return generateShareableLink(agoraState.channelName);
   };
 
-  // Fetch participants when channel name changes
-  useEffect(() => {
-    const fetchParticipants = async () => {
-      if (agoraState.channelName) {
-        const result = await callGetParticipants(agoraState.channelName);
-        if (result.success && result.participants) {
-          setParticipants(prev => ({
-            ...prev,
-            ...result.participants
-          }));
-          
-          // Também atualizar os participantes no estado do Agora
-          setAgoraState(prev => ({
-            ...prev,
-            participants: result.participants
-          }));
-        }
-      }
-    };
-
-    if (agoraState.channelName) {
-      fetchParticipants();
-    }
-  }, [agoraState.channelName]);
-
-  const joinWithUser = async (channelName: string, user: MeetingUser) => {
-    // Prevent multiple simultaneous join attempts
-    if (joinInProgress) {
-      console.log("Join already in progress, ignoring duplicate request");
-      return false;
-    }
-    
-    // Check if already joined the same channel
-    if (agoraState.joinState && agoraState.channelName === channelName) {
-      console.log(`Already joined channel ${channelName}, no need to rejoin`);
-      
-      // Still update current user and participants
-      setCurrentUser(user);
-      setParticipants(prev => ({
-        ...prev,
-        [user.id]: user
-      }));
-      
-      // Também atualizar os participantes no estado do Agora
-      setAgoraState(prev => ({
-        ...prev,
-        participants: {
-          ...prev.participants,
-          [user.id]: user
-        }
-      }));
-      
-      return true;
-    }
-    
-    if (!agoraState.client) {
-      console.error("Cannot join: Agora client not initialized");
-      toast({
-        title: "Connection Error",
-        description: "Audio service not initialized. Please refresh and try again.",
-        variant: "destructive"
-      });
-      return false;
-    }
-    
-    try {
-      setJoinInProgress(true);
-      
-      setCurrentUser(user);
-      
-      // Add user to participants
-      setParticipants(prev => ({
-        ...prev,
-        [user.id]: user
-      }));
-      
-      // Também atualizar os participantes no estado do Agora
-      setAgoraState(prev => ({
-        ...prev,
-        participants: {
-          ...prev.participants,
-          [user.id]: user
-        }
-      }));
-      
-      // Always enable audio for direct link joins
-      const audioEnabled = true;
-      
-      console.log(`Joining audio call for channel ${channelName}...`);
-      const joined = await joinAudioCall(channelName, audioEnabled);
-      
-      if (!joined) {
-        console.error(`Failed to join audio call for channel ${channelName}`);
-      }
-      
-      return joined;
-    } catch (error) {
-      console.error("Error in joinWithUser:", error);
-      toast({
-        title: "Join Error",
-        description: "Failed to join the audio meeting. Please try again.",
-        variant: "destructive"
-      });
-      return false;
-    } finally {
-      setJoinInProgress(false);
-    }
-  };
-
-  // Fix the refreshParticipants function to explicitly return a Promise<void>
+  // Wrapper for the refreshParticipants function
   const refreshParticipants = async (): Promise<void> => {
-    setParticipantsLastUpdated(Date.now());
-    if (agoraState.channelName) {
-      try {
-        const result = await callGetParticipants(agoraState.channelName);
-        if (result.success && result.participants) {
-          setParticipants(result.participants);
-          
-          // Also update participants in Agora state
-          setAgoraState(prev => ({
-            ...prev,
-            participants: result.participants
-          }));
-        }
-        return Promise.resolve();
-      } catch (error) {
-        console.error("Error refreshing participants:", error);
-        return Promise.reject(error);
-      }
-    }
-    return Promise.resolve();
+    return refreshParticipantsFn(
+      agoraState,
+      setAgoraState,
+      setParticipants,
+      setParticipantsLastUpdated
+    );
   };
 
   // Create context value
