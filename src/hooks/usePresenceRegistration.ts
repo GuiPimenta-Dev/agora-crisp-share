@@ -72,16 +72,6 @@ export function usePresenceRegistration(
     const handleBeforeUnload = () => {
       if (currentUser && channelName) {
         // Direct Supabase call to leave meeting using navigator.sendBeacon for reliability
-        const payload = {
-          method: 'POST', 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            meetingId: channelName,
-            userId: currentUser.id
-          })
-        };
-        
-        // Using fetch in beforeunload might not complete, so we use sendBeacon
         navigator.sendBeacon('/api/leave-meeting', JSON.stringify({
           meetingId: channelName,
           userId: currentUser.id
@@ -98,12 +88,13 @@ export function usePresenceRegistration(
       clearTimeout(timer);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       
-      // When we leave the meeting or unmount the component, remove ourselves from the participants table
+      // Only remove participant when component fully unmounts, not on audio state changes
       if (currentUser && channelName) {
+        // This should only happen when actually leaving the meeting, not on status changes
         apiLeaveMeeting(channelName, currentUser.id).catch(err => {
           console.error("Error removing participant on cleanup:", err);
         });
       }
     };
-  }, [currentUser, agoraState.joinState, channelName, agoraState.localAudioTrack?.muted]);
+  }, [currentUser, agoraState.joinState, channelName]); // Removed the audio track dependency
 }

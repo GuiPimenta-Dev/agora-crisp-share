@@ -22,7 +22,7 @@ export function useAudioStatusSync(
   // Track last update time for stronger throttling
   const lastUpdateTimeRef = useRef<number>(0);
   
-  // Track audio status changes
+  // Track audio status changes - only monitor the agoraState.audioMutedState change
   useEffect(() => {
     if (!currentUser || !channelName || !agoraState.localAudioTrack) return;
 
@@ -34,19 +34,16 @@ export function useAudioStatusSync(
       return;
     }
     
-    // Enhanced throttling - only allow updates every 800ms
+    // Enhanced aggressive throttling - only allow updates every 1.2 seconds
     const now = Date.now();
     const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
-    if (timeSinceLastUpdate < 800) {
+    if (timeSinceLastUpdate < 1200) {
       console.log(`Throttling audio sync - last update was ${timeSinceLastUpdate}ms ago`);
       return;
     }
     
-    // Update last update time
+    // Update last update time and previous state ref before the async operation
     lastUpdateTimeRef.current = now;
-    
-    // Update the previous state ref before the async operation
-    // This prevents multiple rapid updates from being queued
     prevMutedStateRef.current = audioMuted;
     
     // Update audio status when it changes
@@ -82,13 +79,15 @@ export function useAudioStatusSync(
       } catch (error) {
         console.error("Exception in updateAudioStatus:", error);
       } finally {
-        // Mark update as completed
-        updateInProgressRef.current = false;
+        // Add a delay before allowing more updates for stability
+        setTimeout(() => {
+          updateInProgressRef.current = false;
+        }, 1000);
       }
     };
     
     updateAudioStatus();
     
-  // Add all relevant dependencies to trigger the effect
-  }, [agoraState.localAudioTrack?.muted, currentUser, channelName, agoraState.audioMutedState]);
+  // Only depend on audioMutedState to prevent unwanted updates
+  }, [agoraState.audioMutedState, currentUser, channelName]);
 }

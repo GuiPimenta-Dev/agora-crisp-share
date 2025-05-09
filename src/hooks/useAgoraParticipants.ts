@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MeetingUser } from "@/types/meeting";
@@ -22,6 +21,9 @@ export function useAgoraParticipants(
   // Track whether a recent notification for a user was shown (any type)
   const recentlyNotifiedRef = useRef<Record<string, number>>({});
   
+  // Keep track of users we've already seen to prevent notifications on UPDATE events
+  const knownUsersRef = useRef<Set<string>>(new Set<string>());
+  
   // Fetch participants when channel name changes
   useEffect(() => {
     if (!channelName || !setParticipants) return;
@@ -35,9 +37,10 @@ export function useAgoraParticipants(
           console.log(`Got ${Object.keys(result.participants).length} participants`);
           setParticipants(result.participants);
           
-          // Mark all initial participants as notified to avoid showing join messages for them
+          // Mark all initial participants as notified AND known to avoid showing join messages for them
           Object.keys(result.participants).forEach(userId => {
             notifiedUsersRef.current.add(userId);
+            knownUsersRef.current.add(userId); // Add to known users to prevent further notifications
           });
         }
       } catch (error) {
@@ -56,8 +59,9 @@ export function useAgoraParticipants(
         [user.id]: user
       }));
       
-      // Add the current user to notified list to avoid notifications
+      // Add the current user to notified and known list to avoid notifications
       notifiedUsersRef.current.add(user.id);
+      knownUsersRef.current.add(user.id);
     }
 
     // Create a unique channel name to prevent potential conflicts
@@ -80,8 +84,8 @@ export function useAgoraParticipants(
           const lastUpdate = statusUpdateTimestampRef.current[userId] || 0;
           const timeDiff = now - lastUpdate;
           
-          // If we got another update for the same user in less than 1000ms, consider it a potential duplicate
-          if (timeDiff < 1000) {
+          // If we got another update for the same user in less than 2000ms, consider it a potential duplicate
+          if (timeDiff < 2000) {
             console.log(`Potential duplicate update for user ${userId} (${timeDiff}ms since last update)`);
             return true;
           }
@@ -97,8 +101,8 @@ export function useAgoraParticipants(
           const lastNotified = recentlyNotifiedRef.current[userId] || 0;
           const timeDiff = now - lastNotified;
           
-          // Only show notifications once every 3 seconds for the same user (any type)
-          if (timeDiff < 3000) {
+          // Only show notifications once every 5 seconds for the same user (any type)
+          if (timeDiff < 5000) {
             console.log(`Skipping ${type} notification for ${userId} (${timeDiff}ms since last notification)`);
             return false;
           }
@@ -112,8 +116,30 @@ export function useAgoraParticipants(
           const newParticipant = payload.new as any;
           const userId = newParticipant.user_id;
           
-          // Check if this might be a duplicate
-          if (isDuplicateUpdate(userId)) return;
+          // Check if this might be a duplicate or if we already know this user
+          if (isDuplicateUpdate(userId) || knownUsersRef.current.has(userId)) {
+            console.log(`User ${userId} is already known or duplicate, not treating as a new join`);
+            
+            // Update the participant data without showing notifications
+            setParticipants(prev => ({
+              ...prev,
+              [userId]: {
+                id: userId,
+                name: newParticipant.name,
+                avatar: newParticipant.avatar,
+                role: newParticipant.role,
+                audioEnabled: newParticipant.audio_enabled,
+                audioMuted: newParticipant.audio_muted,
+                screenSharing: newParticipant.screen_sharing || false,
+                isCurrent: currentUser && currentUser.id === userId
+              }
+            }));
+            
+            return;
+          }
+          
+          // Mark as known now
+          knownUsersRef.current.add(userId);
           
           // Don't notify for our own join
           const isSelf = currentUser && currentUser.id === userId;
@@ -183,15 +209,24 @@ export function useAgoraParticipants(
           // Don't notify for our own leave
           const isSelf = currentUser && currentUser.id === userId;
           
-          if (!isSelf && shouldShowNotification(userId, 'leave')) {
+          // Only notify if this wasn't caused by a status update
+          const now = Date.now();
+          const lastStatusUpdate = statusUpdateTimestampRef.current[userId] || 0;
+          const isLikelyStatusUpdate = now - lastStatusUpdate < 3000;
+          
+          if (!isSelf && !isLikelyStatusUpdate && shouldShowNotification(userId, 'leave')) {
             toast({
               title: "Participant left",
               description: `${deletedParticipant.name} left the meeting`
             });
           }
           
-          // Remove from notified users set
-          notifiedUsersRef.current.delete(userId);
+          // Remove from known users on actual leave
+          if (!isLikelyStatusUpdate) {
+            knownUsersRef.current.delete(userId);
+            // Remove from notified users set
+            notifiedUsersRef.current.delete(userId);
+          }
 
           setParticipants(prev => {
             const newParticipants = { ...prev };

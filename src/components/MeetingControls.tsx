@@ -73,9 +73,9 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
   };
 
   const handleToggleMute = async () => {
-    // Prevent rapid clicks - 800ms cooldown
+    // Prevent rapid clicks - enforced 1.5s cooldown
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 800 || actionInProgressRef.current) {
+    if (now - lastActionTimeRef.current < 1500 || actionInProgressRef.current) {
       console.log("Action cooldown active or action in progress, ignoring click");
       return;
     }
@@ -85,24 +85,29 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
     actionInProgressRef.current = true;
     
     try {
-      // First update the database with the new state (opposite of current isMuted)
-      // This ensures database is updated before UI changes
-      await updateState("audio_muted", !isMuted);
-      
-      // Then update the local state to show the change
+      // Toggle the UI first for immediate feedback - this is safe because we'll revert on error
+      // This improves perceived responsiveness
       toggleMute();
+      
+      // Then update the database with the new state (now using the updated isMuted value)
+      // This ensures database is consistent with local state
+      const updatedValue = !isMuted; // New value is opposite of previous state
+      await updateState("audio_muted", updatedValue);
+    } catch (error) {
+      console.error("Toggle mute failed:", error);
+      // Don't revert the UI state - let the sync hook handle it
     } finally {
-      // Allow new actions after a delay
+      // Allow new actions after a longer delay
       setTimeout(() => {
         actionInProgressRef.current = false;
-      }, 800);
+      }, 1500);
     }
   };
 
   const handleToggleScreenShare = async () => {
-    // Prevent rapid clicks
+    // Prevent rapid clicks - enforced 1.5s cooldown
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 800 || actionInProgressRef.current) {
+    if (now - lastActionTimeRef.current < 1500 || actionInProgressRef.current) {
       return;
     }
     
@@ -131,10 +136,10 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
         }
       }
     } finally {
-      // Allow new actions after a delay
+      // Allow new actions after a longer delay
       setTimeout(() => {
         actionInProgressRef.current = false;
-      }, 800);
+      }, 1500);
     }
   };
 
@@ -148,6 +153,7 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
               size="icon"
               onClick={handleToggleMute}
               className="h-12 w-12 rounded-full"
+              disabled={actionInProgressRef.current}
             >
               {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
             </Button>
@@ -182,6 +188,7 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
               size="icon"
               onClick={handleToggleScreenShare}
               className="h-12 w-12 rounded-full"
+              disabled={actionInProgressRef.current}
             >
               {isScreenSharing ? <MonitorX className="h-5 w-5" /> : <Share2 className="h-5 w-5" />}
             </Button>
