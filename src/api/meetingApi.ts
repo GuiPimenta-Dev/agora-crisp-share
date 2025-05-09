@@ -97,19 +97,24 @@ export const apiJoinMeeting = async (channelId: string, userId: string): Promise
       audioMuted
     };
     
+    // Define participant data
+    const participantData = {
+      meeting_id: channelId,
+      user_id: userId,
+      name: profile.name,
+      avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=random`,
+      role,
+      audio_enabled: audioEnabled,
+      audio_muted: audioMuted,
+      screen_sharing: false
+    };
+    
+    console.log("Adding participant to meeting:", participantData);
+    
     // Add participant to the meeting in Supabase
     const { error: participantError } = await supabase
       .from("meeting_participants")
-      .upsert({
-        meeting_id: channelId,
-        user_id: userId,
-        name: profile.name,
-        avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=random`,
-        role,
-        audio_enabled: audioEnabled,
-        audio_muted: audioMuted,
-        screen_sharing: false
-      }, { onConflict: 'meeting_id,user_id' });
+      .upsert(participantData, { onConflict: 'meeting_id,user_id' });
     
     if (participantError) {
       console.error("Failed to add participant:", participantError);
@@ -132,6 +137,8 @@ export const apiJoinMeeting = async (channelId: string, userId: string): Promise
  */
 export const apiLeaveMeeting = async (channelId: string, userId: string) => {
   try {
+    console.log(`Removing participant ${userId} from meeting ${channelId}`);
+    
     // Remove participant from Supabase
     const { error } = await supabase
       .from("meeting_participants")
@@ -155,16 +162,20 @@ export const apiLeaveMeeting = async (channelId: string, userId: string) => {
  */
 export const apiGetParticipants = async (meetingId: string) => {
   try {
+    console.log(`Getting participants for meeting ${meetingId}`);
+    
     const { data, error } = await supabase
       .from("meeting_participants")
-      .select()
+      .select("*")
       .eq("meeting_id", meetingId);
     
     if (error) throw error;
     
+    console.log(`Found ${data?.length || 0} participants`);
+    
     // Convert array to record object as expected by the application
     const participants: Record<string, MeetingUser> = {};
-    data.forEach((participant: any) => {
+    data?.forEach((participant: any) => {
       participants[participant.user_id] = {
         id: participant.user_id,
         name: participant.name,

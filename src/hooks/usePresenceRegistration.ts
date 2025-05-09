@@ -24,20 +24,25 @@ export function usePresenceRegistration(
       try {
         console.log(`Registering presence for user ${currentUser.id} in channel ${channelName}`);
         
+        // Create the payload with all required fields
+        const participantData = {
+          meeting_id: channelName,
+          user_id: currentUser.id,
+          name: currentUser.name || "Anonymous User",
+          avatar: currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || "User")}&background=random`,
+          role: currentUser.role || "listener",
+          audio_enabled: agoraState.localAudioTrack ? !agoraState.localAudioTrack.muted : false,
+          audio_muted: agoraState.localAudioTrack ? agoraState.localAudioTrack.muted : true,
+          screen_sharing: false
+        };
+
+        console.log("Participant data to register:", participantData);
+        
         // Try to update via API instead of direct Supabase call to work around auth issues
         const response = await fetch('/api/register-presence', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            meeting_id: channelName,
-            user_id: currentUser.id,
-            name: currentUser.name || "Anonymous User",
-            avatar: currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || "User")}&background=random`,
-            role: currentUser.role || "listener",
-            audio_enabled: agoraState.localAudioTrack ? !agoraState.localAudioTrack.muted : false,
-            audio_muted: agoraState.localAudioTrack ? agoraState.localAudioTrack.muted : true,
-            screen_sharing: false
-          })
+          body: JSON.stringify(participantData)
         });
         
         // Fallback to direct Supabase call if API route is not available
@@ -47,16 +52,7 @@ export function usePresenceRegistration(
           // Try direct Supabase call (might fail with 401 but that's ok)
           const { error } = await supabase
             .from("meeting_participants")
-            .upsert({
-              meeting_id: channelName,
-              user_id: currentUser.id,
-              name: currentUser.name || "Anonymous User",
-              avatar: currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || "User")}&background=random`,
-              role: currentUser.role || "listener",
-              audio_enabled: agoraState.localAudioTrack ? !agoraState.localAudioTrack.muted : false,
-              audio_muted: agoraState.localAudioTrack ? agoraState.localAudioTrack.muted : true,
-              screen_sharing: false
-            }, { onConflict: 'meeting_id,user_id' });
+            .upsert(participantData, { onConflict: 'meeting_id,user_id' });
             
           if (error) {
             console.error("Failed to register presence in Supabase:", error);
@@ -76,6 +72,7 @@ export function usePresenceRegistration(
           console.log("Successfully registered presence via API");
         } else {
           console.error("Failed to register presence via API:", response.status, response.statusText);
+          console.log("Response body:", await response.text());
         }
       } catch (error) {
         console.error("Failed to initialize participant sync:", error);

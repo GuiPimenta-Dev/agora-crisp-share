@@ -24,13 +24,18 @@ export function useAudioStatusSync(
         
         console.log(`Updating audio status for ${currentUser.name} to ${audioMuted ? 'muted' : 'unmuted'}`);
         
+        // Create the update payload
+        const updateData = { 
+          audio_muted: audioMuted,
+          // Keep the enabled status for compatibility
+          audio_enabled: !audioMuted 
+        };
+        
+        console.log("Audio status update data:", updateData);
+        
         const { error } = await supabase
           .from("meeting_participants")
-          .update({ 
-            audio_muted: audioMuted,
-            // Keep the enabled status for compatibility
-            audio_enabled: !audioMuted 
-          })
+          .update(updateData)
           .eq("meeting_id", channelName)
           .eq("user_id", currentUser.id);
           

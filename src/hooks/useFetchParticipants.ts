@@ -35,6 +35,8 @@ export function useFetchParticipants(meetingId?: string) {
         if (participantsError) {
           throw new Error(participantsError.message);
         }
+        
+        console.log("Raw participants data:", participantsData);
 
         // Get all user profiles for these participants
         const userIds = participantsData.map(p => p.user_id);
@@ -65,7 +67,7 @@ export function useFetchParticipants(meetingId?: string) {
             combinedParticipants[participant.user_id] = {
               id: participant.user_id,
               name: profile?.summoner || profile?.name || `User-${participant.user_id.substring(0, 4)}`,
-              avatar: profile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.name)}&background=random`,
+              avatar: profile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.name || "User")}&background=random`,
               role: participant.role as any,
               audioEnabled: participant.audio_enabled,
               audioMuted: participant.audio_muted !== undefined ? participant.audio_muted : true, // Default to muted if not specified
