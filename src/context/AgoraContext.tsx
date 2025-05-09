@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import AgoraRTC, { 
   IAgoraRTCClient, 
@@ -77,22 +78,32 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
         if (remoteAudioTrack) {
           remoteAudioTrack.play();
           toast({
-            title: "User joined with audio",
-            description: `User ${user.uid} has joined the call`,
+            title: "Usuário conectou o áudio",
+            description: `Usuário ${user.uid} entrou na chamada`,
           });
         }
       }
       
       if (mediaType === "video") {
-        // User is sharing screen
+        // User is sharing screen - verificamos se já há alguém compartilhando
         setAgoraState(prev => ({
           ...prev,
           screenShareUserId: user.uid
         }));
         toast({
-          title: "Screen share started",
-          description: `User ${user.uid} started sharing their screen`,
+          title: "Compartilhamento iniciado",
+          description: `Usuário ${user.uid} começou a compartilhar a tela`,
         });
+        
+        // Se eu estava compartilhando, paro meu compartilhamento
+        if (isScreenSharing) {
+          await stopScreenShare();
+          toast({
+            title: "Seu compartilhamento foi interrompido",
+            description: "Outro usuário começou a compartilhar a tela",
+            variant: "destructive"
+          });
+        }
       }
       
       // Add user to remote users list if not already there
@@ -116,8 +127,8 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
           screenShareUserId: prev.screenShareUserId === user.uid ? undefined : prev.screenShareUserId
         }));
         toast({
-          title: "Screen share stopped",
-          description: `User ${user.uid} stopped sharing their screen`,
+          title: "Compartilhamento finalizado",
+          description: `Usuário ${user.uid} parou de compartilhar a tela`,
         });
       }
     });
@@ -129,8 +140,8 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
         screenShareUserId: prev.screenShareUserId === user.uid ? undefined : prev.screenShareUserId
       }));
       toast({
-        title: "User left",
-        description: `User ${user.uid} has left the call`,
+        title: "Usuário saiu",
+        description: `Usuário ${user.uid} saiu da chamada`,
       });
     });
 
@@ -138,13 +149,13 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       client.removeAllListeners();
     };
-  }, [toast]);
+  }, [toast, isScreenSharing]);
 
   const joinAudioCall = async (channelName: string): Promise<boolean> => {
     if (!agoraState.client) {
       toast({
-        title: "Error",
-        description: "Agora client not initialized",
+        title: "Erro",
+        description: "Cliente Agora não inicializado",
         variant: "destructive",
       });
       return false;
@@ -168,8 +179,8 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
         }));
         
         toast({
-          title: "Success",
-          description: `You've joined channel ${channelName}`,
+          title: "Conectado",
+          description: `Você entrou no canal ${channelName}`,
         });
       }
       
@@ -177,8 +188,8 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error("Error joining audio call:", error);
       toast({
-        title: "Failed to join",
-        description: "Could not join the audio call. Please check permissions.",
+        title: "Falha ao conectar",
+        description: "Não foi possível entrar na chamada. Por favor, verifique as permissões.",
         variant: "destructive",
       });
       return false;
@@ -208,8 +219,8 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
     setIsMuted(false);
     
     toast({
-      title: "Left call",
-      description: "You've left the audio call",
+      title: "Saiu da chamada",
+      description: "Você saiu da chamada de áudio",
     });
   };
 
@@ -220,15 +231,15 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
       agoraState.localAudioTrack.setEnabled(true);
       setIsMuted(false);
       toast({
-        title: "Microphone unmuted",
-        description: "Others can now hear you",
+        title: "Microfone ativado",
+        description: "Os outros participantes podem ouvir você agora",
       });
     } else {
       agoraState.localAudioTrack.setEnabled(false);
       setIsMuted(true);
       toast({
-        title: "Microphone muted",
-        description: "Others cannot hear you",
+        title: "Microfone silenciado",
+        description: "Os outros participantes não podem ouvir você",
       });
     }
   };
@@ -236,8 +247,18 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
   const startScreenShare = async (): Promise<void> => {
     if (!agoraState.client || !agoraState.joinState) {
       toast({
-        title: "Error",
-        description: "Please join the call first",
+        title: "Erro",
+        description: "Por favor, conecte-se à chamada primeiro",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Verificar se já existe alguém compartilhando tela
+    if (agoraState.screenShareUserId) {
+      toast({
+        title: "Não é possível compartilhar",
+        description: "Outro participante já está compartilhando a tela",
         variant: "destructive",
       });
       return;
@@ -261,14 +282,14 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       toast({
-        title: "Screen sharing started",
-        description: "You are now sharing your screen",
+        title: "Compartilhamento iniciado",
+        description: "Você está compartilhando sua tela agora",
       });
     } catch (error) {
       console.error("Error starting screen share:", error);
       toast({
-        title: "Failed to share screen",
-        description: error instanceof Error ? error.message : "Could not start screen sharing. Please check permissions.",
+        title: "Falha ao compartilhar tela",
+        description: error instanceof Error ? error.message : "Não foi possível iniciar o compartilhamento de tela. Verifique as permissões.",
         variant: "destructive",
       });
     }
@@ -287,8 +308,8 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
     setIsScreenSharing(false);
     
     toast({
-      title: "Screen sharing stopped",
-      description: "You are no longer sharing your screen",
+      title: "Compartilhamento finalizado",
+      description: "Você não está mais compartilhando sua tela",
     });
   };
   

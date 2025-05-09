@@ -16,9 +16,10 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   localSharing,
   remoteScreenUser,
 }) => {
-  const { startScreenShare, stopScreenShare } = useAgora();
+  const { startScreenShare, stopScreenShare, agoraState } = useAgora();
   const { toast } = useToast();
   const remoteVideoRef = useRef<HTMLDivElement>(null);
+  const localVideoRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,10 +34,24 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
     }
   }, [remoteScreenUser]);
   
+  // Handle local screen share
+  useEffect(() => {
+    if (localSharing && agoraState.screenVideoTrack && localVideoRef.current) {
+      agoraState.screenVideoTrack.play(localVideoRef.current);
+      return () => {
+        if (agoraState.screenVideoTrack) {
+          // Não chame stop() aqui para não interromper a transmissão
+          // apenas pare a renderização local
+        }
+      };
+    }
+  }, [localSharing, agoraState.screenVideoTrack]);
+  
   const isScreenBeingShared = localSharing || remoteScreenUser;
+  const isOtherUserSharing = !!remoteScreenUser;
 
   const handleScreenShare = async () => {
-    if (isLoading) return; // Prevent multiple clicks
+    if (isLoading || isOtherUserSharing) return; // Prevent when loading or other is sharing
     
     setIsLoading(true);
     try {
@@ -93,7 +108,11 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
     <div ref={containerRef} className="screen-share-container h-full w-full relative">
       {isScreenBeingShared ? (
         <div className="relative w-full h-full">
-          <div ref={remoteVideoRef} className="w-full h-full" />
+          {remoteScreenUser ? (
+            <div ref={remoteVideoRef} className="w-full h-full" />
+          ) : localSharing ? (
+            <div ref={localVideoRef} className="w-full h-full" />
+          ) : null}
           
           <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">
             <Badge variant="secondary" className="bg-blue-600/90 text-white px-3 py-1.5 flex items-center gap-1.5">
@@ -120,18 +139,25 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
             <div>
               <h3 className="text-xl font-medium mb-2">Nenhuma tela está sendo compartilhada</h3>
               <p className="text-blue-200 max-w-md">
-                Clique no botão abaixo para compartilhar sua tela com ultra alta resolução (até 4K/2160p)
+                {isOtherUserSharing 
+                  ? "Outro participante já está compartilhando a tela. Aguarde ele finalizar para compartilhar a sua."
+                  : "Clique no botão abaixo para compartilhar sua tela com ultra alta resolução (até 4K/2160p)"}
               </p>
               
               <Button
                 className="mt-6"
                 onClick={localSharing ? stopScreenShare : handleScreenShare}
-                disabled={isLoading}
+                disabled={isLoading || isOtherUserSharing}
               >
                 {isLoading ? (
                   <>
                     <AlertCircle className="h-4 w-4 mr-2 animate-pulse" />
                     Aguarde...
+                  </>
+                ) : isOtherUserSharing ? (
+                  <>
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    Outro usuário compartilhando
                   </>
                 ) : (
                   <>
