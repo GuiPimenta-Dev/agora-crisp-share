@@ -50,7 +50,7 @@ export const AgoraProvider: React.FC<AgoraProviderProps> = ({ children }) => {
   } = stateManager;
 
   // Initialize Agora client
-  useAgoraInit({
+  const { initializationComplete } = useAgoraInit({
     agoraState, 
     setAgoraState, 
     clientRef, 
@@ -117,7 +117,8 @@ export const AgoraProvider: React.FC<AgoraProviderProps> = ({ children }) => {
     setParticipants,
     setAgoraState,
     joinInProgress,
-    setJoinInProgress
+    setJoinInProgress,
+    clientInitialized
   });
 
   // Find remote user who is sharing screen (if any)

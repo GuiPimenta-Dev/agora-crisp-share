@@ -1,4 +1,4 @@
-
+import { useState } from "react";
 import { AgoraStateManager } from '@/types/agoraContext';
 import { MeetingUser } from '@/types/meeting';
 import { toast } from '@/hooks/use-toast';
@@ -14,8 +14,46 @@ export const useJoinMeeting = ({
   setParticipants,
   setAgoraState,
   joinInProgress,
-  setJoinInProgress
-}: Pick<AgoraStateManager, 'agoraState' | 'currentUser' | 'setCurrentUser' | 'participants' | 'setParticipants' | 'setAgoraState' | 'joinInProgress' | 'setJoinInProgress'>) => {
+  setJoinInProgress,
+  clientInitialized
+}: Pick<AgoraStateManager, 'agoraState' | 'currentUser' | 'setCurrentUser' | 'participants' | 'setParticipants' | 'setAgoraState' | 'joinInProgress' | 'setJoinInProgress'> & { clientInitialized: boolean }) => {
+  
+  // Add a small delay to ensure client has time to initialize fully
+  const waitForClientInitialization = (timeoutMs = 2000): Promise<boolean> => {
+    console.log("Waiting for client initialization...");
+    
+    // If client is already available, resolve immediately
+    if (agoraState.client) {
+      console.log("Client already initialized, proceeding immediately");
+      return Promise.resolve(true);
+    }
+    
+    // Otherwise wait for the initialization to complete
+    return new Promise((resolve) => {
+      // Check every 100ms if client is ready
+      const checkInterval = 100;
+      let elapsedTime = 0;
+      
+      const checkClientReady = () => {
+        if (agoraState.client) {
+          console.log("Client initialized after waiting");
+          resolve(true);
+          return;
+        }
+        
+        elapsedTime += checkInterval;
+        if (elapsedTime >= timeoutMs) {
+          console.error("Client initialization timeout after", timeoutMs, "ms");
+          resolve(false);
+          return;
+        }
+        
+        setTimeout(checkClientReady, checkInterval);
+      };
+      
+      checkClientReady();
+    });
+  };
   
   /**
    * Join a meeting with the specified user
@@ -53,12 +91,15 @@ export const useJoinMeeting = ({
     try {
       setJoinInProgress(true);
       
+      // Wait for client to be initialized - with timeout
+      const clientReady = await waitForClientInitialization(5000);
+      
       // Ensure client is initialized - if not, we need to wait
-      if (!agoraState.client) {
-        console.error("Cannot join: Agora client not initialized");
+      if (!clientReady || !agoraState.client) {
+        console.error("Cannot join: Agora client not initialized after waiting");
         toast({
           title: "Connection Error",
-          description: "Audio service not initialized. Please wait a moment and try again.",
+          description: "Audio service not initialized. Please refresh the page and try again.",
           variant: "destructive"
         });
         setJoinInProgress(false);

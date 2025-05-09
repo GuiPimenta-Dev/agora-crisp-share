@@ -1,5 +1,5 @@
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/agoraUtils';
 import { toast } from '@/hooks/use-toast';
 import { AgoraStateManager } from '@/types/agoraContext';
@@ -14,6 +14,8 @@ export const useAgoraInit = ({
   setClientInitialized,
   leaveInProgress
 }: Pick<AgoraStateManager, 'agoraState' | 'setAgoraState' | 'clientRef' | 'setClientInitialized' | 'leaveInProgress'>) => {
+  const [initializationComplete, setInitializationComplete] = useState(false);
+
   // Initialize Agora client on component mount
   useEffect(() => {
     const initializeClient = async () => {
@@ -22,12 +24,15 @@ export const useAgoraInit = ({
         const client = createClient();
         clientRef.current = client;
         
+        // Store client in state
         setAgoraState((prev) => ({
           ...prev,
           client
         }));
         
+        // Mark client as initialized
         setClientInitialized(true);
+        setInitializationComplete(true);
         console.log("Agora client initialized successfully");
       } catch (error) {
         console.error("Failed to initialize Agora client:", error);
@@ -65,4 +70,6 @@ export const useAgoraInit = ({
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
+
+  return { initializationComplete };
 };

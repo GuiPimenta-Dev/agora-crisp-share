@@ -18,6 +18,9 @@ export const useAgoraState = (): AgoraStateManager => {
     joinState: false,
     isRecording: false,
     participants: {},
+    channelName: undefined,
+    joinAudioCallFunc: undefined,
+    recordingId: undefined
   });
 
   const [isMuted, setIsMuted] = useState(false);

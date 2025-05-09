@@ -16,6 +16,7 @@ export function useAgoraAudioCall(
   setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
 ) {
   const joinAudioCall = async (channelName: string, audioEnabled: boolean = true): Promise<boolean> => {
+    // Double check client initialization
     if (!agoraState.client) {
       console.error("Agora client not initialized in joinAudioCall");
       toast({
@@ -119,6 +120,9 @@ export function useAgoraAudioCall(
       isRecording: false,
       // Keep recordingId so we can download after leaving
       recordingId: agoraState.recordingId,
+      channelName: undefined,
+      participants: {},
+      joinAudioCallFunc: agoraState.joinAudioCallFunc
     });
     
     setIsScreenSharing(false);
