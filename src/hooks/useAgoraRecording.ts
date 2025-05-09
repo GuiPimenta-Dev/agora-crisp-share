@@ -1,17 +1,54 @@
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { AgoraState, RecordingSettings } from "@/types/agora";
 import { generateToken } from "@/lib/tokenGenerator";
+import { MeetingUser } from "@/types/meeting";
 
 export function useAgoraRecording(
   agoraState: AgoraState,
-  setAgoraState: React.Dispatch<React.SetStateAction<AgoraState>>
+  setAgoraState: React.Dispatch<React.SetStateAction<AgoraState>>,
+  currentUser: MeetingUser | null
 ) {
   const [recordingSettings, setRecordingSettings] = useState<RecordingSettings | null>(null);
+  const reminderTimerRef = useRef<number | null>(null);
 
   // Cloud recording API endpoints
   const RECORDING_API_URL = "https://api.agora.io/v1/apps/52556fe6809a4624b3227a074c550aca/cloud_recording";
+
+  // Set up recording reminder for coach
+  useEffect(() => {
+    // Clear any existing timer when component unmounts or user changes
+    return () => {
+      if (reminderTimerRef.current !== null) {
+        clearInterval(reminderTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Set up recording reminder for coach when channel is joined
+  useEffect(() => {
+    // Only set up reminder if user is a coach and channel is joined
+    if (currentUser?.role === 'coach' && agoraState.joinState && agoraState.channelName) {
+      // Start a reminder timer that checks every 3 minutes
+      reminderTimerRef.current = window.setInterval(() => {
+        // Only show reminder if not already recording
+        if (!agoraState.isRecording) {
+          toast({
+            title: "Lembrete de gravação",
+            description: "Você ainda não está gravando esta reunião. Clique no botão de gravação para começar.",
+          });
+        }
+      }, 3 * 60 * 1000); // 3 minutes in milliseconds
+    }
+    
+    return () => {
+      if (reminderTimerRef.current !== null) {
+        clearInterval(reminderTimerRef.current);
+        reminderTimerRef.current = null;
+      }
+    };
+  }, [currentUser?.role, agoraState.joinState, agoraState.channelName, agoraState.isRecording]);
 
   // Start cloud recording
   const startRecording = async () => {

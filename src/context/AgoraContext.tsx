@@ -87,7 +87,8 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   
   const { startRecording, stopRecording, downloadRecording } = useAgoraRecording(
     agoraState,
-    setAgoraState
+    setAgoraState,
+    currentUser
   );
   
   // New screen recording hook
@@ -100,7 +101,10 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     stopScreenShare, 
     isScreenSharing,
     startRecording,
-    stopRecording
+    stopRecording,
+    currentUser,
+    participants,
+    setParticipants
   );
 
   // Find remote user who is sharing screen (if any)
@@ -132,8 +136,17 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (agoraState.channelName) {
       fetchParticipants();
+      
+      // Notify when a user joins
+      if (currentUser) {
+        const user = { ...currentUser, isCurrent: true };
+        setParticipants(prev => ({
+          ...prev,
+          [user.id]: user
+        }));
+      }
     }
-  }, [agoraState.channelName]);
+  }, [agoraState.channelName, currentUser]);
 
   const joinWithUser = async (channelName: string, user: MeetingUser) => {
     // Prevent multiple simultaneous join attempts
@@ -150,7 +163,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setCurrentUser(user);
       setParticipants(prev => ({
         ...prev,
-        [user.id]: user
+        [user.id]: { ...user, isCurrent: true }
       }));
       
       return true;
@@ -169,12 +182,13 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       setJoinInProgress(true);
       
-      setCurrentUser(user);
+      // Set current user with isCurrent flag
+      setCurrentUser({ ...user, isCurrent: true });
       
       // Add user to participants
       setParticipants(prev => ({
         ...prev,
-        [user.id]: user
+        [user.id]: { ...user, isCurrent: true }
       }));
       
       // Always enable audio for direct link joins

@@ -7,6 +7,7 @@ export interface MeetingUser {
   avatar: string;
   role: Role;
   audioEnabled: boolean;
+  isCurrent?: boolean;
 }
 
 export interface Meeting {

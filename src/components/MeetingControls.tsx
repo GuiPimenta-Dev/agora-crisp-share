@@ -25,8 +25,8 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
   // Check if user can use audio
   const canUseAudio = currentUser?.role === "coach" || currentUser?.role === "student";
 
-  // Check if user can share screen (only coach for now)
-  const canShareScreen = currentUser?.role === "coach";
+  // Check if user can share screen (coach and student can share screen now)
+  const canShareScreen = currentUser?.role === "coach" || currentUser?.role === "student";
 
   return (
     <div className={`flex items-center justify-center gap-4 p-4 ${className}`}>

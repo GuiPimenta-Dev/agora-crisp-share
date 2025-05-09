@@ -35,7 +35,7 @@ export interface AgoraContextType {
   downloadRecording: () => Promise<void>;
   isScreenRecording: boolean;
   toggleScreenRecording: () => void;
-  // New meeting functionality
+  // Meeting functionality
   currentUser: MeetingUser | null;
   participants: Record<string, MeetingUser>;
   setParticipants: React.Dispatch<React.SetStateAction<Record<string, MeetingUser>>>;
