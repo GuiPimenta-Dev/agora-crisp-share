@@ -5,10 +5,11 @@ import { Mic, MicOff, Users, MonitorSmartphone, Crown, Gamepad2, User } from "lu
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAgora } from "@/context/AgoraContext";
 import { MeetingUser } from "@/types/meeting";
-import { sortParticipantsByRole } from "@/utils/participantSorting";
+import { sortParticipantsByRoleAndTime } from "@/utils/participantSorting";
 
 interface ParticipantsListProps {
   className?: string;
+  meetingId?: string; // Added meetingId prop to match usage in MeetingRoom.tsx
 }
 
 const roleConfig = {
@@ -44,7 +45,8 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({ className = "" }) =
   };
 
   // Sort participants by role: coach first, then student, then listeners
-  const sortedParticipants = [...Object.values(participants || {})].sort(sortParticipantsByRole);
+  // Updated to use the correct function name
+  const sortedParticipants = [...Object.values(participants || {})].sort(sortParticipantsByRoleAndTime);
   
   return (
     <div className={`rounded-lg bg-card p-4 ${className}`}>
