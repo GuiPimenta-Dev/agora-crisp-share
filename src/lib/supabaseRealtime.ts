@@ -8,8 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export async function enableRealtimeForTable(tableName: string): Promise<boolean> {
   try {
+    console.log(`Attempting to enable realtime for table: ${tableName}`);
+    
     // Call the edge function to enable realtime for the given table
-    const { error } = await supabase.functions.invoke('enable-realtime', {
+    const { data, error } = await supabase.functions.invoke('enable-realtime', {
       body: { tableName }
     });
     
@@ -18,7 +20,7 @@ export async function enableRealtimeForTable(tableName: string): Promise<boolean
       return false;
     }
     
-    console.log(`Successfully enabled realtime for ${tableName}`);
+    console.log(`Successfully enabled realtime for ${tableName}:`, data);
     return true;
   } catch (err) {
     console.error(`Error enabling realtime for ${tableName}:`, err);
