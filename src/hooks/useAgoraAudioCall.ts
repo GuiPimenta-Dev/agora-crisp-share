@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
@@ -56,19 +55,13 @@ export function useAgoraAudioCall(
           channelName
         }));
         
-        // After joining successfully, we can update the mute state
-        if (!audioEnabled) {
-          console.log("Audio disabled by settings, muting microphone");
-          localAudioTrack.setEnabled(false);
-          setIsMuted(true);
-        } else {
-          console.log("Audio enabled");
-          setIsMuted(false);
-        }
+        // Mudança principal: Mutar o microfone por padrão ao entrar na sala
+        localAudioTrack.setEnabled(false);
+        setIsMuted(true);
         
         toast({
-          title: "Connected",
-          description: `You've joined channel ${channelName}`,
+          title: "Conectado",
+          description: `Você entrou na sala ${channelName} com microfone mutado`,
         });
       } else {
         console.error("Failed to join channel:", channelName);

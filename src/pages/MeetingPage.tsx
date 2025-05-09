@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAgora } from "@/context/AgoraContext";
@@ -21,7 +20,7 @@ const MeetingPage: React.FC = () => {
   
   useEffect(() => {
     if (!meetingId) {
-      setError("Invalid meeting ID");
+      setError("ID de reunião inválido");
       setIsJoining(false);
       return;
     }
@@ -37,7 +36,7 @@ const MeetingPage: React.FC = () => {
     if (!agoraState.client) {
       // If we've already tried a few times and still no client, show error
       if (joinRetries > 3) {
-        setError("Failed to initialize audio client. Please try refreshing the page.");
+        setError("Falha ao inicializar o cliente de áudio. Por favor, atualize a página.");
         setIsJoining(false);
         return;
       }
@@ -65,18 +64,17 @@ const MeetingPage: React.FC = () => {
         const userId = searchParams.get("id") || localStorage.getItem("userId");
         
         if (!userId) {
-          setError("User ID is required to join the meeting");
+          setError("ID do usuário é necessário para entrar na reunião");
           toast({
-            title: "Error",
-            description: "User ID is required to join the meeting",
+            title: "Erro",
+            description: "ID do usuário é necessário para entrar na reunião",
             variant: "destructive"
           });
           setIsJoining(false);
           return;
         }
         
-        // We now only need userId, other info will be fetched from Supabase
-        console.log(`Attempting to join meeting ${meetingId} as user ${userId}`);
+        console.log(`Tentando entrar na reunião ${meetingId} como usuário ${userId}`);
         
         const result = await callJoinMeeting(meetingId, userId);
         
@@ -88,13 +86,13 @@ const MeetingPage: React.FC = () => {
           
           if (!joinSuccess) {
             console.error("Failed to join with user");
-            throw new Error("Failed to join meeting room");
+            throw new Error("Falha ao entrar na sala de reunião");
           }
         } else {
-          const errorMessage = result.error || "Failed to join meeting";
+          const errorMessage = result.error || "Falha ao entrar na reunião";
           setError(errorMessage);
           toast({
-            title: "Error",
+            title: "Erro",
             description: errorMessage,
             variant: "destructive"
           });
@@ -102,7 +100,7 @@ const MeetingPage: React.FC = () => {
         }
       } catch (err) {
         console.error("Error joining meeting:", err);
-        setError("An unexpected error occurred");
+        setError("Um erro inesperado ocorreu");
         setIsJoining(false);
       } finally {
         setIsJoining(false);

@@ -2,7 +2,7 @@
 import React from "react";
 import { IAgoraRTCRemoteUser, UID } from "agora-rtc-sdk-ng";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mic, MicOff, User, Users } from "lucide-react";
+import { Mic, MicOff, Users } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
@@ -21,12 +21,20 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
   
   // Get initials from name
   const getInitials = (name: string) => {
+    if (!name) return "U";
+    
     return name
       .split(' ')
       .map(part => part[0])
       .join('')
       .toUpperCase()
       .substring(0, 2);
+  };
+  
+  // Função para verificar se o usuário está com som ativo
+  const isUserTalking = (userId: string) => {
+    const remoteUser = remoteUsers.find(ru => ru.uid.toString() === userId);
+    return remoteUser && remoteUser.hasAudio;
   };
   
   return (
@@ -40,7 +48,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
         <div className="space-y-1">
           {/* Current User */}
           {currentUser && (
-            <div className={`participant ${String(screenShareUserId) === currentUser.id ? "participant-active" : ""}`}>
+            <div className={`flex items-center gap-3 p-2 rounded-md ${String(screenShareUserId) === currentUser.id ? "bg-secondary/40" : ""}`}>
               <Avatar className="h-8 w-8">
                 <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
@@ -69,7 +77,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
               return (
                 <div 
                   key={id} 
-                  className={`participant ${screenShareUserId === id ? "participant-active" : ""}`}
+                  className={`flex items-center gap-3 p-2 rounded-md ${screenShareUserId === id ? "bg-secondary/40" : ""}`}
                 >
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user.avatar} alt={user.name} />
@@ -79,7 +87,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
                   </Avatar>
                   <div className="flex-1 flex justify-between items-center">
                     <div>
-                      <span>{user.name}</span>
+                      <span>{user.name || `Usuário ${id.substring(0, 8)}`}</span>
                       <span className="text-xs text-muted-foreground ml-1">({user.role})</span>
                     </div>
                     {remoteUser && remoteUser.hasAudio ? (
