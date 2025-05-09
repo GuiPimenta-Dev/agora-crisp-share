@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAgora } from "@/context/AgoraContext";
 import MeetingRoom from "@/components/MeetingRoom";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react";
 
 const MeetingPage: React.FC = () => {
   const { meetingId } = useParams();
+  const [searchParams] = useSearchParams();
   const { joinWithUser } = useAgora();
   const { toast } = useToast();
   const [isJoining, setIsJoining] = useState(true);
@@ -23,14 +24,30 @@ const MeetingPage: React.FC = () => {
       return;
     }
     
-    const userId = localStorage.getItem("userId") || `user-${Date.now()}`;
-    localStorage.setItem("userId", userId); // Save for future use
+    // Check for URL parameters first (direct access via link)
+    const urlUserId = searchParams.get("id");
+    const urlUserName = searchParams.get("name");
+    const urlUserAvatar = searchParams.get("profile_pic");
     
-    const userName = localStorage.getItem("userName") || "Guest User";
-    const userAvatar = localStorage.getItem("userAvatar") || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`;
+    // If URL parameters exist, use them; otherwise, fall back to localStorage
+    const userId = urlUserId || localStorage.getItem("userId") || `user-${Date.now()}`;
+    // Always save the userId to localStorage for future use
+    if (!urlUserId) {
+      localStorage.setItem("userId", userId);
+    }
     
-    // Mock user for testing - you would get this from your auth system
-    const mockUser = {
+    const userName = urlUserName || localStorage.getItem("userName") || "Guest User";
+    const userAvatar = urlUserAvatar || 
+      localStorage.getItem("userAvatar") || 
+      `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`;
+    
+    // If we got params from URL, save them to localStorage for consistency
+    if (!urlUserId && userId) localStorage.setItem("userId", userId);
+    if (!urlUserName && userName) localStorage.setItem("userName", userName);
+    if (!urlUserAvatar && userAvatar) localStorage.setItem("userAvatar", userAvatar);
+    
+    // User object to join the meeting
+    const user = {
       id: userId,
       name: userName,
       avatar: userAvatar
@@ -39,7 +56,7 @@ const MeetingPage: React.FC = () => {
     // Join the meeting
     const joinMeeting = async () => {
       try {
-        const result = await callJoinMeeting(meetingId, mockUser);
+        const result = await callJoinMeeting(meetingId, user);
         
         if (result.success && result.user) {
           await joinWithUser(meetingId, result.user);
@@ -60,7 +77,7 @@ const MeetingPage: React.FC = () => {
     };
     
     joinMeeting();
-  }, [meetingId, joinWithUser, toast]);
+  }, [meetingId, joinWithUser, toast, searchParams]);
   
   if (isJoining) {
     return (
