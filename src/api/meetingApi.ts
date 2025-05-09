@@ -1,5 +1,5 @@
 
-import { CreateMeetingRequest, JoinMeetingRequest, MeetingUser } from "@/types/meeting";
+import { CreateMeetingRequest, JoinMeetingRequest, MeetingUser, Role } from "@/types/meeting";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -49,7 +49,7 @@ export const apiJoinMeeting = async (channelId: string, data: JoinMeetingRequest
     }
     
     // Determine role and audio permissions
-    let role = "listener";
+    let role: Role = "listener";
     let audioEnabled = false;
     
     if (data.id === meeting.coach_id) {
@@ -139,7 +139,7 @@ export const apiGetParticipants = async (meetingId: string) => {
         id: participant.user_id,
         name: participant.name,
         avatar: participant.avatar,
-        role: participant.role as "coach" | "student" | "listener",
+        role: participant.role as Role,
         audioEnabled: participant.audio_enabled
       };
     });
