@@ -19,13 +19,13 @@ export function useAgoraAudioEvents(
   
   // Reference to track audio states for each user
   const audioStatesRef = useRef<Record<string, boolean>>({});
+  // Reference to store notified users that persists across rerenders
+  const notifiedUsersRef = useRef<Set<string>>(new Set<string>());
+  // Reference to track the last update time for each user
+  const lastUpdateTimeRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     if (!client) return;
-    
-    // Flag to control notification of audio events
-    // to avoid duplicate or unwanted messages
-    const notifiedUsers = new Set<string>();
 
     const handleUserAudioPublished = async (user: IAgoraRTCRemoteUser, mediaType: string) => {
       if (mediaType !== "audio") return;
@@ -39,7 +39,12 @@ export function useAgoraAudioEvents(
         // Only notify about new user with audio if not previously notified
         const userId = user.uid.toString();
         
-        if (!notifiedUsers.has(userId)) {
+        // Skip notification if we recently updated this user's status (within the last 1 second)
+        const now = Date.now();
+        const lastUpdate = lastUpdateTimeRef.current[userId] || 0;
+        const isRecentUpdate = now - lastUpdate < 1000;
+        
+        if (!notifiedUsersRef.current.has(userId) && !isRecentUpdate) {
           const participantName = participants[userId]?.name || `User ${userId}`;
           
           console.log(`User ${userId} (${participantName}) connected audio for the first time`);
@@ -50,8 +55,11 @@ export function useAgoraAudioEvents(
           });
           
           // Mark as notified to avoid duplicate messages
-          notifiedUsers.add(userId);
+          notifiedUsersRef.current.add(userId);
         }
+        
+        // Update the last update time
+        lastUpdateTimeRef.current[userId] = now;
         
         // Store the current audio state
         audioStatesRef.current[userId] = true;
@@ -89,13 +97,13 @@ export function useAgoraAudioEvents(
         user.audioTrack.stop();
       }
       
-      // We don't show a notification when a user disables audio
-      // This prevents messages like "user left" when they just muted themselves
-      
       const userId = user.uid.toString();
       
       // Update the stored audio state
       audioStatesRef.current[userId] = false;
+      
+      // Update the last update time
+      lastUpdateTimeRef.current[userId] = Date.now();
       
       // Update audio status in Supabase
       if (channelName) {

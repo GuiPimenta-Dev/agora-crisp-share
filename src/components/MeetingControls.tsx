@@ -80,13 +80,22 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
   const handleToggleMute = async () => {
     console.log("Toggle mute clicked, current state:", isMuted);
     
-    // First update the database with the new state
+    // First update the local state to give immediate feedback
+    toggleMute();
+    
+    // Then update the database with the new state (opposite of current isMuted since we toggled)
     const success = await updateState("audio_muted", !isMuted);
     
-    // Only if the database update is successful, toggle the mute state locally
-    if (success) {
-      // Then toggle the mute state in the UI and Agora
-      toggleMute();
+    // If database update fails, revert the local state
+    if (!success) {
+      console.warn("Database update failed, reverting local state");
+      toggleMute(); // Toggle back to original state
+      
+      toast({
+        title: "Sync Failed",
+        description: "Could not update mute status on server",
+        variant: "destructive"
+      });
     }
   };
 
