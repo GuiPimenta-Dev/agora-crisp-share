@@ -1,3 +1,4 @@
+
 import AgoraRTC, { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
@@ -64,6 +65,7 @@ export const createScreenVideoTrack = async (config?: Partial<ScreenVideoTrackIn
 
   try {
     console.log("📺 Iniciando compartilhamento de tela com configurações:", mergedConfig);
+    // Use displaySurface: 'monitor' para selecionar a tela inteira automaticamente
     const track = await AgoraRTC.createScreenVideoTrack(
       mergedConfig,
       "disable" // sem áudio da tela

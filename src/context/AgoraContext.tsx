@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useRef, useEffect } from "react";
 import AgoraRTC, { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { createClient } from "@/lib/agoraUtils";
@@ -32,6 +33,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     remoteUsers: [],
     joinState: false,
     isRecording: false,
+    participants: {},
   });
 
   const [isMuted, setIsMuted] = useState(false);
@@ -42,6 +44,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [joinInProgress, setJoinInProgress] = useState(false);
   const clientRef = useRef<IAgoraRTCClient | undefined>();
   const [participantsLastUpdated, setParticipantsLastUpdated] = useState<number>(Date.now());
+  const leaveInProgress = useRef<boolean>(false);
 
   // Initialize Agora client immediately on component mount
   useEffect(() => {
@@ -69,6 +72,34 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
     
     initializeClient();
+
+    // Adicionar listener de saída da página para parar gravação e download
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // Se estiver gravando, parar e fazer download
+      if (agoraState.isRecording && !leaveInProgress.current) {
+        // Impedir saída imediata para permitir download
+        event.preventDefault();
+        event.returnValue = "";
+        
+        // Marcar que estamos saindo para evitar múltiplos downloads
+        leaveInProgress.current = true;
+        
+        // Parar gravação e fazer download
+        stopRecording().then(() => {
+          // A função stopRecording já fará o download automaticamente
+          setTimeout(() => {
+            leaveInProgress.current = false;
+          }, 3000);
+        });
+      }
+      return undefined;
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
   }, []);
 
   // Initialize hooks with our shared state
@@ -112,6 +143,12 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (result.success && result.participants) {
             // Check for new participants
             const prevParticipantCount = Object.keys(participants).length;
+            
+            // Também atualizar os participantes no estado do Agora
+            setAgoraState(prev => ({
+              ...prev,
+              participants: result.participants
+            }));
             
             setParticipants(result.participants);
             
@@ -178,6 +215,12 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             ...prev,
             ...result.participants
           }));
+          
+          // Também atualizar os participantes no estado do Agora
+          setAgoraState(prev => ({
+            ...prev,
+            participants: result.participants
+          }));
         }
       }
     };
@@ -205,6 +248,15 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         [user.id]: user
       }));
       
+      // Também atualizar os participantes no estado do Agora
+      setAgoraState(prev => ({
+        ...prev,
+        participants: {
+          ...prev.participants,
+          [user.id]: user
+        }
+      }));
+      
       return true;
     }
     
@@ -227,6 +279,15 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setParticipants(prev => ({
         ...prev,
         [user.id]: user
+      }));
+      
+      // Também atualizar os participantes no estado do Agora
+      setAgoraState(prev => ({
+        ...prev,
+        participants: {
+          ...prev.participants,
+          [user.id]: user
+        }
       }));
       
       // Always enable audio for direct link joins

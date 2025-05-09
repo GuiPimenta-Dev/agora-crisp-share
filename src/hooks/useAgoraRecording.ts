@@ -1,14 +1,50 @@
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { AgoraState, RecordingSettings } from "@/types/agora";
 import { generateToken } from "@/lib/tokenGenerator";
+
+// Som de notificação quando a gravação inicia
+const RECORDING_START_SOUND = "https://assets.mixkit.co/active_storage/sfx/214/214-preview.mp3";
 
 export function useAgoraRecording(
   agoraState: AgoraState,
   setAgoraState: React.Dispatch<React.SetStateAction<AgoraState>>
 ) {
   const [recordingSettings, setRecordingSettings] = useState<RecordingSettings | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const autoRecordingAttempted = useRef<boolean>(false);
+
+  // Criar elemento de áudio para tocar som de início de gravação
+  useEffect(() => {
+    audioRef.current = new Audio(RECORDING_START_SOUND);
+    audioRef.current.preload = "auto";
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Monitorar participantes para iniciar gravação quando coach e student estiverem presentes
+  useEffect(() => {
+    // Verifica se já tentou iniciar a gravação automática
+    if (autoRecordingAttempted.current) return;
+    
+    if (agoraState.participants) {
+      const participants = Object.values(agoraState.participants);
+      const hasCoach = participants.some(p => p.role === "coach");
+      const hasStudent = participants.some(p => p.role === "student");
+      
+      // Iniciar gravação apenas se tiver coach e aluno, e não estiver já gravando
+      if (hasCoach && hasStudent && !agoraState.isRecording) {
+        console.log("Coach e aluno presentes, iniciando gravação automática");
+        autoRecordingAttempted.current = true;
+        startRecording();
+      }
+    }
+  }, [agoraState.participants, agoraState.isRecording]);
 
   // Cloud recording API endpoints
   const RECORDING_API_URL = "https://api.agora.io/v1/apps/52556fe6809a4624b3227a074c550aca/cloud_recording";
@@ -54,9 +90,15 @@ export function useAgoraRecording(
           recordingId: mockRecordingId
         }));
         
+        // Tocar som de início de gravação
+        if (audioRef.current) {
+          audioRef.current.play().catch(err => console.error("Erro ao tocar som de gravação:", err));
+        }
+        
         toast({
-          title: "Recording Started",
-          description: "This call is now being recorded",
+          title: "Gravação Iniciada",
+          description: "Esta chamada está sendo gravada agora",
+          variant: "default",
         });
       }, 1500);
       
@@ -93,6 +135,11 @@ export function useAgoraRecording(
           title: "Recording Stopped",
           description: "Recording has ended and is being processed. Download will be available shortly.",
         });
+        
+        // Iniciar download automático após parar a gravação
+        setTimeout(() => {
+          downloadRecording();
+        }, 2000);
       }, 1500);
       
       return true;

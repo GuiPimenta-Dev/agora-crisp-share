@@ -1,14 +1,7 @@
 
-import { 
-  IAgoraRTCClient, 
-  IAgoraRTCRemoteUser, 
-  IMicrophoneAudioTrack, 
-  ILocalVideoTrack,
-  UID,
-} from "agora-rtc-sdk-ng";
+import { IAgoraRTCClient, IAgoraRTCRemoteUser, IMicrophoneAudioTrack, ILocalVideoTrack, UID } from "agora-rtc-sdk-ng";
 import { MeetingUser } from "./meeting";
 
-// Define types for our Agora client state
 export interface AgoraState {
   client?: IAgoraRTCClient;
   localAudioTrack?: IMicrophoneAudioTrack;
@@ -16,21 +9,22 @@ export interface AgoraState {
   screenShareUserId?: UID;
   remoteUsers: IAgoraRTCRemoteUser[];
   joinState: boolean;
-  isRecording: boolean;
-  recordingId?: string;
+  isRecording?: boolean;
   channelName?: string;
+  recordingId?: string;
+  participants?: Record<string, MeetingUser>;
 }
 
 export interface AgoraContextType {
   agoraState: AgoraState;
-  joinAudioCall: (channelName: string, audioEnabled?: boolean) => Promise<boolean>;
+  joinAudioCall: (channelName: string, audioEnabled: boolean) => Promise<boolean>;
   leaveAudioCall: () => Promise<void>;
-  toggleMute: () => void;
+  toggleMute: () => Promise<void>;
   startScreenShare: () => Promise<void>;
   stopScreenShare: () => Promise<void>;
   isScreenSharing: boolean;
   isMuted: boolean;
-  remoteScreenShareUser: IAgoraRTCRemoteUser | undefined;
+  remoteScreenShareUser?: IAgoraRTCRemoteUser;
   generateMeetingLink: () => string;
   downloadRecording: () => Promise<void>;
   isScreenRecording: boolean;

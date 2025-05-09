@@ -62,13 +62,20 @@ export function useAgoraEventHandlers(
           remoteUsers: [...prev.remoteUsers.filter(u => u.uid !== user.uid), user]
         };
         
-        // Start recording if this is the second participant (first remote user)
-        if (newState.remoteUsers.length === 1 && !prev.isRecording) {
-          startRecording().then(success => {
-            if (success) {
-              console.log("Recording started automatically with second participant");
-            }
-          });
+        // Verificar se temos coach e aluno para iniciar gravação automaticamente
+        if (prev.participants) {
+          const participants = Object.values(prev.participants);
+          const hasCoach = participants.some(p => p.role === "coach");
+          const hasStudent = participants.some(p => p.role === "student");
+          
+          if (hasCoach && hasStudent && !prev.isRecording) {
+            console.log("Coach e aluno presentes, iniciando gravação automática");
+            startRecording().then(success => {
+              if (success) {
+                console.log("Gravação iniciada automaticamente com coach e aluno");
+              }
+            });
+          }
         }
         
         return newState;
