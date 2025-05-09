@@ -1,6 +1,6 @@
 
 import { useEffect } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { AgoraState } from "@/types/agora";
 import { IAgoraRTCClient } from "agora-rtc-sdk-ng";
 
@@ -12,7 +12,6 @@ export function useAgoraEventHandlers(
   startRecording: () => Promise<boolean>,
   stopRecording: () => Promise<boolean>
 ) {
-  const { toast } = useToast();
   const client = agoraState.client;
 
   useEffect(() => {
@@ -147,5 +146,5 @@ export function useAgoraEventHandlers(
     return () => {
       client.removeAllListeners();
     };
-  }, [client, toast, isScreenSharing, stopScreenShare, setAgoraState, startRecording, stopRecording]);
+  }, [client, isScreenSharing, stopScreenShare, setAgoraState, startRecording, stopRecording]);
 }

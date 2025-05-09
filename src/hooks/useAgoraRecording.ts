@@ -1,5 +1,6 @@
+
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { AgoraState, RecordingSettings } from "@/types/agora";
 import { generateToken } from "@/lib/tokenGenerator";
 
@@ -7,7 +8,6 @@ export function useAgoraRecording(
   agoraState: AgoraState,
   setAgoraState: React.Dispatch<React.SetStateAction<AgoraState>>
 ) {
-  const { toast } = useToast();
   const [recordingSettings, setRecordingSettings] = useState<RecordingSettings | null>(null);
 
   // Cloud recording API endpoints

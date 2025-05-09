@@ -1,12 +1,11 @@
 
 import { useState, useRef } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 
 export function useScreenRecording() {
   const [isRecording, setIsRecording] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
-  const { toast } = useToast();
 
   const startRecording = async () => {
     recordedChunksRef.current = [];

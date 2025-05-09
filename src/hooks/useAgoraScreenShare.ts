@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { 
   createScreenVideoTrack
 } from "@/lib/agoraUtils";
@@ -12,8 +12,6 @@ export function useAgoraScreenShare(
   setAgoraState: React.Dispatch<React.SetStateAction<AgoraState>>,
   setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
 ) {
-  const { toast } = useToast();
-
   const startScreenShare = async (): Promise<void> => {
     if (!agoraState.client || !agoraState.joinState) {
       toast({

@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { 
   createMicrophoneAudioTrack, 
   joinChannel, 
@@ -15,8 +14,6 @@ export function useAgoraAudioCall(
   setIsMuted: React.Dispatch<React.SetStateAction<boolean>>,
   setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
 ) {
-  const { toast } = useToast();
-
   const joinAudioCall = async (channelName: string, audioEnabled: boolean = true): Promise<boolean> => {
     if (!agoraState.client) {
       toast({

@@ -9,7 +9,7 @@ import { useAgoraEventHandlers } from "@/hooks/useAgoraEventHandlers";
 import { useAgoraRecording } from "@/hooks/useAgoraRecording";
 import { useScreenRecording } from "@/hooks/useScreenRecording";
 import { generateShareableLink } from "@/lib/tokenGenerator";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 import { MeetingUser } from "@/types/meeting";
 import { callGetParticipants } from "@/api/MeetingApiRoutes";
 
@@ -40,7 +40,6 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentUser, setCurrentUser] = useState<MeetingUser | null>(null);
   const [participants, setParticipants] = useState<Record<string, MeetingUser>>({});
   const clientRef = useRef<IAgoraRTCClient | undefined>();
-  const { toast } = useToast();
 
   // Initialize hooks with our shared state
   const { joinAudioCall, leaveAudioCall, toggleMute } = useAgoraAudioCall(

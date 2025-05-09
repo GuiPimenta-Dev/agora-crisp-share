@@ -5,14 +5,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "@/hooks/use-toast";
 
 const JoinMeeting: React.FC = () => {
   const [meetingId, setMeetingId] = useState("");
   const [name, setName] = useState(localStorage.getItem("userName") || "");
   const [userId, setUserId] = useState(localStorage.getItem("userId") || `user-${Math.floor(Math.random() * 10000)}`);
   const navigate = useNavigate();
-  const { toast } = useToast();
 
   const handleJoinMeeting = () => {
     if (!meetingId) {
