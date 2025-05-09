@@ -32,7 +32,7 @@ export function usePresenceRegistration(
           avatar: currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || "User")}&background=random`,
           role: currentUser.role || "listener",
           audio_enabled: agoraState.localAudioTrack ? !agoraState.localAudioTrack.muted : false,
-          audio_muted: agoraState.localAudioTrack ? agoraState.localAudioTrack.muted : true,
+          audio_muted: true,
           screen_sharing: false
         };
 
