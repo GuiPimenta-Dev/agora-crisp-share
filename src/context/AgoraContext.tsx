@@ -148,6 +148,26 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [agoraState.channelName, currentUser]);
 
+  // Add coach recording reminder
+  useEffect(() => {
+    // Check if current user is a coach and if both coach and student are present
+    const isCoach = currentUser?.role === "coach";
+    const hasStudent = Object.values(participants).some(p => p.role === "student");
+    
+    if (isCoach && hasStudent && !isScreenRecording) {
+      // Set up a reminder every 3 minutes
+      const reminderInterval = setInterval(() => {
+        toast({
+          title: "Lembrete de Gravação",
+          description: "Lembre-se de iniciar a gravação da aula para seus registros.",
+          variant: "default",
+        });
+      }, 3 * 60 * 1000); // 3 minutes in milliseconds
+      
+      return () => clearInterval(reminderInterval);
+    }
+  }, [currentUser, participants, isScreenRecording]);
+
   const joinWithUser = async (channelName: string, user: MeetingUser) => {
     // Prevent multiple simultaneous join attempts
     if (joinInProgress) {

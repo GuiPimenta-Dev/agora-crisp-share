@@ -18,6 +18,34 @@ export function useAgoraEventHandlers(
 ) {
   const client = agoraState.client;
 
+  // Effect for participant list synchronization when joining
+  useEffect(() => {
+    if (!client || !currentUser || !agoraState.joinState) return;
+
+    // When we join successfully, broadcast our presence to other participants
+    const broadcastPresence = async () => {
+      try {
+        // Small delay to ensure connection is ready
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Send a custom message to all users in the channel
+        // This contains our user information for others to add to their participant list
+        if (client.channelName) {
+          await client.sendStreamMessage(Buffer.from(JSON.stringify({
+            type: "user_joined",
+            user: currentUser
+          })));
+          
+          console.log("Broadcast presence message sent");
+        }
+      } catch (error) {
+        console.error("Failed to broadcast presence:", error);
+      }
+    };
+
+    broadcastPresence();
+  }, [client, currentUser, agoraState.joinState]);
+
   useEffect(() => {
     if (!client) return;
 
@@ -147,9 +175,36 @@ export function useAgoraEventHandlers(
       }
     });
 
+    // Add custom message handler for participant synchronization
+    client.on("stream-message", (user, data) => {
+      try {
+        const message = JSON.parse(Buffer.from(data).toString());
+        
+        if (message.type === "user_joined" && message.user) {
+          const newUser = message.user as MeetingUser;
+          
+          // Add the user to our participants list if not already there
+          setParticipants(prev => {
+            // Don't add if already in the list or if it's us
+            if (prev[newUser.id] || (currentUser && newUser.id === currentUser.id)) {
+              return prev;
+            }
+            
+            console.log(`Adding user ${newUser.name} to participants via message`);
+            return {
+              ...prev,
+              [newUser.id]: { ...newUser, isCurrent: false }
+            };
+          });
+        }
+      } catch (error) {
+        console.error("Error processing stream message:", error);
+      }
+    });
+
     // Clean up
     return () => {
       client.removeAllListeners();
     };
-  }, [client, isScreenSharing, stopScreenShare, setAgoraState, startRecording, stopRecording, participants, setParticipants]);
+  }, [client, isScreenSharing, stopScreenShare, setAgoraState, startRecording, stopRecording, participants, setParticipants, currentUser]);
 }
