@@ -1,4 +1,3 @@
-
 import AgoraRTC, { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
@@ -55,7 +54,6 @@ export const createScreenVideoTrack = async (config?: Partial<ScreenVideoTrackIn
     },
     optimizationMode: "detail", // priorizar detalhes e qualidade
     screenSourceType: "screen", // tela inteira por padrão
-    autoSelectDisplaySurface: true // selecionar tela automaticamente
   };
 
   // Merge das configurações padrão com as opções passadas

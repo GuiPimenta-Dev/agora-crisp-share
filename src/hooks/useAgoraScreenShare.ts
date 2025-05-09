@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
@@ -35,7 +34,6 @@ export function useAgoraScreenShare(
     try {
       // Solicitação de compartilhamento automático da tela inteira
       const screenTrack = await createScreenVideoTrack({
-        autoSelectDisplaySurface: true,
         screenSourceType: "screen", // "screen" representa a tela inteira
       });
       

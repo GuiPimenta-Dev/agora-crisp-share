@@ -110,11 +110,13 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         try {
           const result = await callGetParticipants(agoraState.channelName);
           if (result.success && result.participants) {
+            // Check for new participants
+            const prevParticipantCount = Object.keys(participants).length;
+            
             setParticipants(result.participants);
             
             // Caso novo participante tenha entrado, mostrar um toast
             const participantCount = Object.keys(result.participants).length;
-            const prevParticipantCount = Object.keys(participants).length;
             
             if (participantCount > prevParticipantCount && prevParticipantCount > 0) {
               const newParticipants = Object.entries(result.participants).filter(
@@ -122,10 +124,11 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               );
               
               if (newParticipants.length > 0) {
-                const [, user] = newParticipants[0];
+                // Fixed type error by ensuring newParticipants[0][1] is a MeetingUser
+                const newUser = newParticipants[0][1] as MeetingUser;
                 toast({
                   title: "Novo participante",
-                  description: `${user.name} entrou na chamada`,
+                  description: `${newUser.name} entrou na chamada`,
                 });
               }
             }
@@ -150,7 +153,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, [agoraState.remoteUsers, agoraState.channelName, participantsLastUpdated]);
+  }, [agoraState.remoteUsers, agoraState.channelName, participantsLastUpdated, participants]);
 
   // Find remote user who is sharing screen (if any)
   const remoteScreenShareUser = agoraState.remoteUsers.find(
