@@ -6,6 +6,8 @@ import { AgoraState, AgoraContextType } from "@/types/agora";
 import { useAgoraAudioCall } from "@/hooks/useAgoraAudioCall";
 import { useAgoraScreenShare } from "@/hooks/useAgoraScreenShare";
 import { useAgoraEventHandlers } from "@/hooks/useAgoraEventHandlers";
+import { useAgoraRecording } from "@/hooks/useAgoraRecording";
+import { generateShareableLink } from "@/lib/tokenGenerator";
 
 const AgoraContext = createContext<AgoraContextType | undefined>(undefined);
 
@@ -25,7 +27,8 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
     screenVideoTrack: undefined,
     screenShareUserId: undefined,
     remoteUsers: [],
-    joinState: false
+    joinState: false,
+    isRecording: false,
   });
 
   const [isMuted, setIsMuted] = useState(false);
@@ -45,6 +48,11 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
     setAgoraState,
     setIsScreenSharing
   );
+  
+  const { startRecording, stopRecording, downloadRecording } = useAgoraRecording(
+    agoraState,
+    setAgoraState
+  );
 
   // Initialize Agora client
   React.useEffect(() => {
@@ -59,16 +67,26 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Set up event handlers using our hook
   useAgoraEventHandlers(
-    agoraState.client, 
+    agoraState,
     setAgoraState, 
     stopScreenShare, 
-    isScreenSharing
+    isScreenSharing,
+    startRecording,
+    stopRecording
   );
 
   // Find remote user who is sharing screen (if any)
   const remoteScreenShareUser = agoraState.remoteUsers.find(
     user => user.uid === agoraState.screenShareUserId
   );
+
+  // Generate meeting link based on current channel
+  const generateMeetingLink = () => {
+    if (!agoraState.channelName) {
+      throw new Error("No active channel to generate link for");
+    }
+    return generateShareableLink(agoraState.channelName);
+  };
 
   // Create context value
   const contextValue: AgoraContextType = {
@@ -81,6 +99,8 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
     isScreenSharing,
     isMuted,
     remoteScreenShareUser,
+    generateMeetingLink,
+    downloadRecording,
   };
 
   return <AgoraContext.Provider value={contextValue}>{children}</AgoraContext.Provider>;

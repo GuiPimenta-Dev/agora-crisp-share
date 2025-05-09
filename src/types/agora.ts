@@ -15,6 +15,9 @@ export interface AgoraState {
   screenShareUserId?: UID;
   remoteUsers: IAgoraRTCRemoteUser[];
   joinState: boolean;
+  isRecording: boolean;
+  recordingId?: string;
+  channelName?: string;
 }
 
 export interface AgoraContextType {
@@ -27,4 +30,14 @@ export interface AgoraContextType {
   isScreenSharing: boolean;
   isMuted: boolean;
   remoteScreenShareUser: IAgoraRTCRemoteUser | undefined;
+  generateMeetingLink: () => string;
+  downloadRecording: () => Promise<void>;
+}
+
+export interface RecordingSettings {
+  channelName: string;
+  uid: string;
+  token: string;
+  resourceId?: string;
+  recordingId?: string;
 }

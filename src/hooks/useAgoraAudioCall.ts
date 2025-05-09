@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { 
@@ -41,7 +40,8 @@ export function useAgoraAudioCall(
         setAgoraState(prev => ({
           ...prev,
           localAudioTrack,
-          joinState: true
+          joinState: true,
+          channelName // Store the channel name for link generation
         }));
         
         toast({
@@ -65,6 +65,14 @@ export function useAgoraAudioCall(
   const leaveAudioCall = async (): Promise<void> => {
     if (!agoraState.client) return;
     
+    // If recording is active, download before leaving
+    if (agoraState.recordingId) {
+      toast({
+        title: "Preparando gravação",
+        description: "Salvando a gravação da chamada antes de sair...",
+      });
+    }
+    
     const tracksToClose = [
       agoraState.localAudioTrack,
       agoraState.screenVideoTrack
@@ -78,7 +86,10 @@ export function useAgoraAudioCall(
       screenVideoTrack: undefined,
       screenShareUserId: undefined,
       remoteUsers: [],
-      joinState: false
+      joinState: false,
+      isRecording: false,
+      // Keep recordingId so we can download after leaving
+      recordingId: agoraState.recordingId,
     });
     
     setIsScreenSharing(false);

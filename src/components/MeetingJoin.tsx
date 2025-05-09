@@ -1,17 +1,29 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAgora } from "@/context/AgoraContext";
-import { Loader2 } from "lucide-react";
+import { Loader2, Copy, Link, Check } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { getChannelFromUrl } from "@/lib/tokenGenerator";
 
 const MeetingJoin = () => {
   const [channelName, setChannelName] = useState("main");
   const [isJoining, setIsJoining] = useState(false);
-  const { joinAudioCall } = useAgora();
+  const [linkCopied, setLinkCopied] = useState(false);
+  const { joinAudioCall, generateMeetingLink } = useAgora();
   const { toast } = useToast();
+
+  // Check for channel name in URL
+  useEffect(() => {
+    const urlChannel = getChannelFromUrl();
+    if (urlChannel) {
+      setChannelName(urlChannel);
+      // Option to auto-join when coming from a link
+      // handleJoin();
+    }
+  }, []);
 
   const handleJoin = async () => {
     if (!channelName.trim()) return;
@@ -39,6 +51,22 @@ const MeetingJoin = () => {
     }
   };
 
+  const copyLinkToClipboard = () => {
+    const link = generateMeetingLink();
+    navigator.clipboard.writeText(link).then(() => {
+      setLinkCopied(true);
+      toast({
+        title: "Link copied!",
+        description: "Meeting link has been copied to clipboard.",
+      });
+      
+      // Reset the "Copied" status after a short delay
+      setTimeout(() => {
+        setLinkCopied(false);
+      }, 2000);
+    });
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-blue-50 to-blue-100">
       <Card className="w-full max-w-md shadow-lg">
@@ -54,14 +82,36 @@ const MeetingJoin = () => {
               <label htmlFor="channel" className="text-sm font-medium">
                 Meeting ID
               </label>
-              <Input
-                id="channel"
-                placeholder="Enter meeting ID"
-                value={channelName}
-                onChange={(e) => setChannelName(e.target.value)}
-                className="w-full"
-              />
+              <div className="relative">
+                <Input
+                  id="channel"
+                  placeholder="Enter meeting ID"
+                  value={channelName}
+                  onChange={(e) => setChannelName(e.target.value)}
+                  className="w-full"
+                />
+              </div>
             </div>
+            
+            {channelName.trim() && (
+              <div className="pt-2">
+                <Button 
+                  variant="outline" 
+                  className="w-full flex items-center justify-center gap-2"
+                  onClick={copyLinkToClipboard}
+                >
+                  {linkCopied ? (
+                    <>
+                      <Check className="h-4 w-4" /> Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Link className="h-4 w-4" /> Generate shareable link
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
         <CardFooter>

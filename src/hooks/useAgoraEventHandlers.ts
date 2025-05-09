@@ -5,12 +5,15 @@ import { AgoraState } from "@/types/agora";
 import { IAgoraRTCClient } from "agora-rtc-sdk-ng";
 
 export function useAgoraEventHandlers(
-  client: IAgoraRTCClient | undefined,
+  agoraState: AgoraState,
   setAgoraState: React.Dispatch<React.SetStateAction<AgoraState>>,
   stopScreenShare: () => Promise<void>,
-  isScreenSharing: boolean
+  isScreenSharing: boolean,
+  startRecording: () => Promise<boolean>,
+  stopRecording: () => Promise<boolean>
 ) {
   const { toast } = useToast();
+  const client = agoraState.client;
 
   useEffect(() => {
     if (!client) return;
@@ -54,10 +57,23 @@ export function useAgoraEventHandlers(
       }
       
       // Add user to remote users list if not already there
-      setAgoraState(prev => ({
-        ...prev,
-        remoteUsers: [...prev.remoteUsers.filter(u => u.uid !== user.uid), user]
-      }));
+      setAgoraState(prev => {
+        const newState = {
+          ...prev,
+          remoteUsers: [...prev.remoteUsers.filter(u => u.uid !== user.uid), user]
+        };
+        
+        // Start recording if this is the second participant (first remote user)
+        if (newState.remoteUsers.length === 1 && !prev.isRecording) {
+          startRecording().then(success => {
+            if (success) {
+              console.log("Recording started automatically with second participant");
+            }
+          });
+        }
+        
+        return newState;
+      });
     });
 
     client.on("user-unpublished", (user, mediaType) => {
@@ -86,16 +102,28 @@ export function useAgoraEventHandlers(
 
     client.on("user-left", (user) => {
       // Make sure to check if the leaving user was sharing screen
-      // FIX: Use agoraState.screenShareUserId instead of client.screenShareUserId
       setAgoraState(prev => {
         // Check if the leaving user was sharing screen
         const wasShareUser = prev.screenShareUserId === user.uid;
         
-        return {
+        // Update state
+        const newRemoteUsers = prev.remoteUsers.filter(u => u.uid !== user.uid);
+        const newState = {
           ...prev,
-          remoteUsers: prev.remoteUsers.filter(u => u.uid !== user.uid),
-          screenShareUserId: prev.screenShareUserId === user.uid ? undefined : prev.screenShareUserId
+          remoteUsers: newRemoteUsers,
+          screenShareUserId: wasShareUser ? undefined : prev.screenShareUserId
         };
+        
+        // If no remote users left and recording is active, stop recording
+        if (newRemoteUsers.length === 0 && prev.isRecording) {
+          stopRecording().then(success => {
+            if (success) {
+              console.log("Recording stopped automatically as last participant left");
+            }
+          });
+        }
+        
+        return newState;
       });
       
       toast({
@@ -119,5 +147,5 @@ export function useAgoraEventHandlers(
     return () => {
       client.removeAllListeners();
     };
-  }, [client, toast, isScreenSharing, stopScreenShare, setAgoraState]);
+  }, [client, toast, isScreenSharing, stopScreenShare, setAgoraState, startRecording, stopRecording]);
 }

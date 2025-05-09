@@ -40,3 +40,26 @@ export function generateToken(channelName: string, uid: number = 0): string {
     throw new Error("Failed to generate token. Please check your configuration.");
   }
 }
+
+/**
+ * Generates a shareable meeting URL
+ * @param channelName The channel name
+ * @returns The full URL that can be shared with others
+ */
+export function generateShareableLink(channelName: string): string {
+  // Create a URL with the channel name as a query parameter
+  const baseUrl = window.location.origin;
+  const url = new URL(baseUrl);
+  url.searchParams.append("channel", channelName);
+  
+  return url.toString();
+}
+
+/**
+ * Extracts channel name from URL if present
+ * @returns The channel name from URL or null if not found
+ */
+export function getChannelFromUrl(): string | null {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get("channel");
+}
