@@ -36,7 +36,7 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
     console.log("User ID:", userId, "Channel:", meetingId);
 
     if (!userId || !meetingId) {
-      console.warn("Missing currentUser.id or channelName");
+      console.warn("Missing userId or meetingId for update");
       return;
     }
 
@@ -45,8 +45,11 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
       const updateData = field === "audio_muted" 
         ? { [field]: value, audio_enabled: !value }
         : { [field]: value };
-        
-      const { error, data } = await supabase
+      
+      console.log("Update payload:", updateData);
+      
+      // Use a more detailed structure to capture response and error info
+      const { error, data, status, statusText } = await supabase
         .from("meeting_participants")
         .update(updateData)
         .eq("user_id", userId)
@@ -54,20 +57,25 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
 
       if (error) {
         console.error(`Error updating ${field}:`, error.message, error.details);
+        console.error("Status:", status, statusText);
+        
         toast({
           title: "Sync Error",
-          description: `Could not update ${field.replace('_', ' ')} status`,
+          description: `Could not update ${field.replace('_', ' ')} status: ${error.message}`,
           variant: "destructive"
         });
       } else {
         console.log(`Successfully updated ${field}:`, data);
+        console.log("Update status:", status, statusText);
       }
     } catch (err) {
-      console.error(`Error updating ${field}:`, err);
+      console.error(`Exception updating ${field}:`, err);
     }
   };
 
   const handleToggleMute = async () => {
+    console.log("Toggle mute clicked, current state:", isMuted);
+    
     // First toggle the mute state in the UI and Agora
     toggleMute();
     

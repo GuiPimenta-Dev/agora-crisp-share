@@ -31,10 +31,11 @@ export function useAudioStatusSync(
           audio_enabled: !audioMuted 
         };
         
-        console.log("Audio status update data:", updateData);
+        console.log("Audio status update payload:", updateData);
         console.log("User ID:", currentUser.id, "Channel:", channelName);
         
-        const { error, data } = await supabase
+        // Use a more detailed structure to capture response and error for better debugging
+        const { error, data, status, statusText } = await supabase
           .from("meeting_participants")
           .update(updateData)
           .eq("meeting_id", channelName)
@@ -42,21 +43,25 @@ export function useAudioStatusSync(
           
         if (error) {
           console.error("Failed to update audio status in Supabase:", error);
+          console.error("Status:", status, statusText);
+          
           toast({
             title: "Sync Error",
-            description: `Failed to update audio status: ${error.message}`,
+            description: `Audio status update failed: ${error.message}`,
             variant: "destructive"
           });
         } else {
           console.log("Successfully updated audio status in database:", data);
+          console.log("Update status:", status, statusText);
         }
       } catch (error) {
-        console.error("Failed to update audio status:", error);
+        console.error("Exception in updateAudioStatus:", error);
       }
     };
 
-    // Update status whenever the muted state changes
+    // Always update status when the hook detects a mute state change
     updateAudioStatus();
-  // Add the new audioMutedState as a dependency to trigger the effect
+    
+  // Add all relevant dependencies to trigger the effect
   }, [agoraState.localAudioTrack?.muted, agoraState.audioMutedState, currentUser, channelName]);
 }
