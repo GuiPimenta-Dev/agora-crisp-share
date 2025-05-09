@@ -257,9 +257,12 @@ export function useAgoraParticipants(
           const isLikelyStatusUpdate = now - lastStatusUpdate < 3000;
           
           if (!isSelf && !isLikelyStatusUpdate && shouldShowNotification(userId, 'leave')) {
-            // Fix: Add type assertion and default values for deleted participant
-            const participantName = deletedParticipant && typeof deletedParticipant === 'object' ? 
-              (deletedParticipant.name as string || 'Unknown user') : 'Unknown user';
+            // Fix: Add proper type checking and default values for deleted participant
+            // Make sure deletedParticipant is an object and has the required properties
+            const participantName = deletedParticipant && 
+              typeof deletedParticipant === 'object' && 
+              'name' in deletedParticipant ? 
+              String(deletedParticipant.name) : 'Unknown user';
             
             toast({
               title: "Participant left",
