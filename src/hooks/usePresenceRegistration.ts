@@ -74,6 +74,8 @@ export function usePresenceRegistration(
           }
         } else if (response.ok) {
           console.log("Successfully registered presence via API");
+        } else {
+          console.error("Failed to register presence via API:", response.status, response.statusText);
         }
       } catch (error) {
         console.error("Failed to initialize participant sync:", error);

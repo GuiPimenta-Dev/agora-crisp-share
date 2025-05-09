@@ -171,8 +171,8 @@ export const apiGetParticipants = async (meetingId: string) => {
         avatar: participant.avatar,
         role: participant.role as Role,
         audioEnabled: participant.audio_enabled,
-        audioMuted: participant.audio_muted || !participant.audio_enabled, // Fallback for older records
-        screenSharing: participant.screen_sharing
+        audioMuted: participant.audio_muted !== undefined ? participant.audio_muted : true, // Ensure we have a value
+        screenSharing: participant.screen_sharing || false
       };
     });
     
