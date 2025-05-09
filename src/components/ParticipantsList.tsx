@@ -1,173 +1,128 @@
 import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic, MicOff, Users, MonitorSmartphone, Crown, Gamepad2, User } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAgora } from "@/context/AgoraContext";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { useParticipantsList } from "@/hooks/useParticipantsList";
-import { MeetingUser, Role } from "@/types/meeting";
+import { MeetingUser } from "@/types/meeting";
+import { sortParticipantsByRole } from "@/utils/participantSorting";
 
 interface ParticipantsListProps {
-  meetingId?: string;
   className?: string;
 }
 
-const ParticipantsList: React.FC<ParticipantsListProps> = ({
-  meetingId,
-  className = ""
-}) => {
-  const { agoraState, currentUser } = useAgora();
-  const { sortedParticipants, isLoading, error } = useParticipantsList(meetingId);
-  
-  // Get initials from name
-  const getInitials = (name: string) => {
-    if (!name) return "U";
-    
+const roleConfig = {
+  coach: {
+    icon: Crown,
+    label: "Coach",
+    color: "text-yellow-500",
+  },
+  student: {
+    icon: Gamepad2,
+    label: "Student",
+    color: "text-blue-500",
+  },
+};
+
+const canUseAudio = (participant: MeetingUser) => {
+  return participant?.role === "coach" || participant?.role === "student";
+};
+
+const ParticipantsList: React.FC<ParticipantsListProps> = ({ className = "" }) => {
+  const { participants, currentUser } = useAgora();
+
+  const getAvatarInitials = (name: string) => {
     return name
-      .split(' ')
-      .map(part => part[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
   };
 
-  // Function to get role icon
-  const getRoleIcon = (role: Role) => {
-    switch (role) {
-      case "coach":
-        return <Crown className="h-3.5 w-3.5 text-yellow-500" />;
-      case "student":
-        return <Gamepad2 className="h-3.5 w-3.5 text-blue-500" />;
-      default:
-        return <User className="h-3.5 w-3.5 text-neutral-500" />;
-    }
-  };
-  
-  // Function to get role badge color
-  const getRoleBadgeClass = (role: Role) => {
-    switch (role) {
-      case "coach":
-        return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
-      case "student":
-        return "bg-blue-500/10 text-blue-600 border-blue-500/20";
-      default:
-        return "bg-neutral-500/10 text-neutral-600 border-neutral-500/20";
-    }
+  const getPresenceIndicatorColor = (participant: MeetingUser) => {
+    return participant.audioEnabled ? "bg-green-500" : "bg-red-500";
   };
 
-  // Loading skeletons
-  if (isLoading) {
-    return (
-      <Card className={`p-4 shadow-sm ${className}`}>
-        <div className="flex items-center gap-2 mb-4">
-          <Users className="h-5 w-5 text-muted-foreground" />
-          <h3 className="font-medium">Participants</h3>
-        </div>
-        <ScrollArea className="h-[calc(100vh-280px)]">
-          <div className="space-y-3">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="flex items-center gap-3 p-2">
-                <Skeleton className="h-8 w-8 rounded-full" />
-                <div className="space-y-1 flex-1">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-3 w-16" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </Card>
-    );
-  }
-  
-  // Error state
-  if (error) {
-    return (
-      <Card className={`p-4 shadow-sm ${className}`}>
-        <div className="flex items-center gap-2 mb-4">
-          <Users className="h-5 w-5 text-muted-foreground" />
-          <h3 className="font-medium">Participants</h3>
-        </div>
-        <div className="py-8 text-center">
-          <p className="text-sm text-muted-foreground">{error}</p>
-        </div>
-      </Card>
-    );
-  }
+  // Sort participants by role: coach first, then student, then listeners
+  const sortedParticipants = [...Object.values(participants || {})].sort(sortParticipantsByRole);
   
   return (
-    <Card className={`bg-card rounded-lg p-4 shadow-sm ${className}`}>
-      <div className="flex items-center gap-2 mb-4">
-        <Users className="h-5 w-5 text-muted-foreground" />
-        <h3 className="font-medium">Participants ({sortedParticipants.length})</h3>
+    <div className={`rounded-lg bg-card p-4 ${className}`}>
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold flex items-center">
+          <Users className="mr-2 h-5 w-5" /> Participants
+          <span className="ml-2 text-xs text-muted-foreground">({sortedParticipants.length})</span>
+        </h2>
       </div>
       
-      <ScrollArea className="h-[calc(100vh-280px)]">
-        <div className="space-y-1">
-          {sortedParticipants.map((participant) => {
-            const isCurrentUser = currentUser && participant.id === currentUser.id;
-            
-            // IMPORTANT: Use the audioMuted property directly instead of checking audioEnabled
-            const isAudioMuted = participant.audioMuted === undefined ? true : participant.audioMuted;
-            
-            return (
-              <div 
-                key={participant.id} 
-                className={`flex items-center gap-3 p-2 rounded-md ${
-                  participant.screenSharing ? "bg-secondary/40" : ""
-                } ${
-                  isCurrentUser ? "ring-1 ring-primary/20" : ""
-                }`}
-              >
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={participant.avatar} alt={participant.name} />
-                  <AvatarFallback className={`text-xs ${
-                    isCurrentUser ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-                  }`}>
-                    {getInitials(participant.name)}
-                  </AvatarFallback>
-                </Avatar>
-                
-                <div className="flex-1 flex flex-col min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-medium truncate">{participant.name}</span>
-                    {isCurrentUser && (
-                      <span className="text-xs text-muted-foreground">(you)</span>
-                    )}
+      {/* Empty state when no participants */}
+      {sortedParticipants.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          <User className="mx-auto h-12 w-12 mb-2 opacity-20" />
+          <p>No participants yet</p>
+          <p className="text-sm">Share the meeting link to invite others</p>
+        </div>
+      ) : (
+        <ScrollArea className="h-[300px] pr-4">
+          <div className="space-y-1">
+            {sortedParticipants.map((participant) => {
+              const isCurrentUser = currentUser && participant.id === currentUser.id;
+              
+              // IMPORTANT: Use the audioMuted property directly instead of checking audioEnabled
+              const isAudioMuted = participant.audioMuted === undefined ? true : participant.audioMuted;
+              
+              return (
+                <div 
+                  key={participant.id}
+                  className={`flex items-center justify-between p-2 rounded-md ${
+                    isCurrentUser ? "bg-secondary/50" : "hover:bg-muted/50"
+                  }`}
+                >
+                  {/* Participant avatar and name */}
+                  <div className="flex items-center space-x-3">
+                    <Avatar>
+                      <AvatarImage src={participant.avatar} alt={participant.name} />
+                      <AvatarFallback>{getAvatarInitials(participant.name)}</AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex items-center">
+                      <span className="font-medium">{participant.name}</span>
+                      {/* Role indicator */}
+                      {participant.role && roleConfig[participant.role] && (
+                        <roleConfig[participant.role].icon
+                          className={`ml-1.5 h-4 w-4 ${roleConfig[participant.role].color}`}
+                          aria-label={roleConfig[participant.role].label}
+                        />
+                      )}
+                      {/* Current user indicator */}
+                      {isCurrentUser && (
+                        <span className="ml-1.5 text-xs text-muted-foreground">(You)</span>
+                      )}
+                    </div>
                   </div>
                   
-                  <div className="flex items-center gap-1.5">
-                    <Badge 
-                      variant="outline" 
-                      className={`text-xs py-0 h-5 px-1.5 ${getRoleBadgeClass(participant.role)}`}
-                    >
-                      <span className="flex items-center gap-1">
-                        {getRoleIcon(participant.role)}
-                        <span>{participant.role}</span>
-                      </span>
-                    </Badge>
+                  <div className="flex items-center space-x-2">
+                    {/* Screen sharing indicator */}
+                    {participant.screenSharing && (
+                      <MonitorSmartphone className="h-4 w-4 text-blue-500" />
+                    )}
+                    
+                    {/* Audio status indicator */}
+                    {canUseAudio(participant) ? (
+                      isAudioMuted ? (
+                        <MicOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Mic className="h-4 w-4 text-green-500" />
+                      )
+                    ) : null}
                   </div>
                 </div>
-                
-                <div className="flex items-center gap-2">
-                  {participant.screenSharing && (
-                    <MonitorSmartphone className="h-4 w-4 text-blue-500" />
-                  )}
-                  {!isAudioMuted ? (
-                    <Mic className="h-4 w-4 text-primary" />
-                  ) : (
-                    <MicOff className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </ScrollArea>
-    </Card>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      )}
+    </div>
   );
-}
+};
 
 export default ParticipantsList;

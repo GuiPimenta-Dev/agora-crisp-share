@@ -50,6 +50,7 @@ export function useAgoraAudioEvents(
             .eq("user_id", userId)
             .then(({ error }) => {
               if (error) console.error("Error updating audio status:", error);
+              else console.log("Successfully updated remote user audio status");
             });
         }
       }
@@ -84,6 +85,7 @@ export function useAgoraAudioEvents(
           .eq("user_id", userId)
           .then(({ error }) => {
             if (error) console.error("Error updating audio status:", error);
+            else console.log("Successfully updated remote user audio status to muted");
           });
       }
     };
