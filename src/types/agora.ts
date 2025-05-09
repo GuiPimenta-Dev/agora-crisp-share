@@ -44,4 +44,3 @@ export interface RecordingSettings {
   resourceId?: string;
   recordingId?: string;
 }
-

@@ -21,12 +21,13 @@ export function generateToken(channelName: string, uid: number = 0): string {
   }
 
   try {
-    // Using direct token creation instead of the library due to Buffer issues in browser
-    // For demo purposes, we'll use a mock token since we can't create real tokens in browser
-    console.log("Generating demo token for channel:", channelName);
+    // For browser environments, we need to use a simpler token generation approach
+    // that doesn't rely on Node.js crypto functions
+    console.log("Generating mock token for channel:", channelName);
     
-    // Generate a mock token that looks like a real token but doesn't require crypto functions
-    const mockToken = `006${APP_ID}${Buffer.from(APP_ID + channelName + uid + currentTimestamp + "DEMO").toString('base64')}`;
+    // Generate a deterministic mock token based on input parameters
+    // This is NOT secure for production but works for demo purposes
+    const mockToken = `006${APP_ID}${btoa(APP_ID + channelName + uid + currentTimestamp)}`;
     return mockToken;
   } catch (error) {
     console.error("Token generation error:", error);
