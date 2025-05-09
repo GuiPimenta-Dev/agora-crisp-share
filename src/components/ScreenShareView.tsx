@@ -39,7 +39,10 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
     if (localSharing && agoraState.screenVideoTrack && localVideoRef.current) {
       agoraState.screenVideoTrack.play(localVideoRef.current);
       return () => {
-        // Cleanup function - don't stop the track here to avoid interrupting broadcast
+        // Cleanup when unmounting only
+        if (agoraState.screenVideoTrack && !localSharing) {
+          agoraState.screenVideoTrack.stop();
+        }
       };
     }
   }, [localSharing, agoraState.screenVideoTrack]);
@@ -79,11 +82,15 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
 
     if (!isFullscreen) {
       if (containerRef.current.requestFullscreen) {
-        containerRef.current.requestFullscreen();
+        containerRef.current.requestFullscreen()
+          .then(() => setIsFullscreen(true))
+          .catch(err => console.error("Falha ao entrar em fullscreen:", err));
       }
     } else {
       if (document.exitFullscreen) {
-        document.exitFullscreen();
+        document.exitFullscreen()
+          .then(() => setIsFullscreen(false))
+          .catch(err => console.error("Falha ao sair do fullscreen:", err));
       }
     }
   };
@@ -102,13 +109,13 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   }, []);
   
   return (
-    <div ref={containerRef} className="screen-share-container h-full w-full relative">
+    <div ref={containerRef} className="screen-share-container h-full w-full relative rounded-md overflow-hidden">
       {isScreenBeingShared ? (
         <div className="relative w-full h-full">
           {remoteScreenUser ? (
-            <div ref={remoteVideoRef} className="w-full h-full" />
+            <div ref={remoteVideoRef} className="w-full h-full bg-black" />
           ) : localSharing ? (
-            <div ref={localVideoRef} className="w-full h-full" />
+            <div ref={localVideoRef} className="w-full h-full bg-black" />
           ) : null}
           
           <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">
@@ -118,15 +125,15 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
             </Badge>
           </div>
 
-          {/* Botão de maximizar/minimizar */}
+          {/* Botão de maximizar/minimizar - mais destacado para ser facilmente visível */}
           <Button 
             variant="secondary" 
             size="icon"
-            className="absolute top-3 right-3 bg-black/50 hover:bg-black/70"
+            className="absolute top-3 right-3 bg-blue-600 hover:bg-blue-700 text-white shadow-lg z-50"
             onClick={toggleFullscreen}
             title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
           >
-            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
           </Button>
         </div>
       ) : (
@@ -155,6 +162,11 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
                   <>
                     <AlertCircle className="h-4 w-4 mr-2" />
                     Outro usuário compartilhando
+                  </>
+                ) : localSharing ? (
+                  <>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Parar compartilhamento
                   </>
                 ) : (
                   <>

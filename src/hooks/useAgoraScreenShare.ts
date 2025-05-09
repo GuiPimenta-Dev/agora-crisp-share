@@ -95,6 +95,13 @@ export function useAgoraScreenShare(
         description: "Ocorreu um erro ao tentar parar o compartilhamento. Tente novamente.",
         variant: "destructive",
       });
+      
+      // Forçar o estado como não compartilhando mesmo se houver erro
+      setIsScreenSharing(false);
+      setAgoraState(prev => ({
+        ...prev,
+        screenVideoTrack: undefined,
+      }));
     }
   };
 

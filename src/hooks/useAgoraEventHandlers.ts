@@ -69,6 +69,10 @@ export function useAgoraEventHandlers(
       
       if (mediaType === "video") {
         // User stopped sharing screen
+        if (user.videoTrack) {
+          user.videoTrack.stop();
+        }
+        
         setAgoraState(prev => ({
           ...prev,
           screenShareUserId: prev.screenShareUserId === user.uid ? undefined : prev.screenShareUserId
@@ -81,15 +85,26 @@ export function useAgoraEventHandlers(
     });
 
     client.on("user-left", (user) => {
+      // Make sure to check if the leaving user was sharing screen
+      const wasShareUser = user.uid === client.screenShareUserId;
+      
       setAgoraState(prev => ({
         ...prev,
         remoteUsers: prev.remoteUsers.filter(u => u.uid !== user.uid),
         screenShareUserId: prev.screenShareUserId === user.uid ? undefined : prev.screenShareUserId
       }));
+      
       toast({
         title: "Usuário saiu",
         description: `Usuário ${user.uid} saiu da chamada`,
       });
+      
+      if (wasShareUser) {
+        toast({
+          title: "Compartilhamento finalizado",
+          description: "O usuário que estava compartilhando a tela saiu da chamada",
+        });
+      }
     });
 
     // Clean up
