@@ -38,41 +38,24 @@ export function usePresenceRegistration(
 
         console.log("Participant data to register:", participantData);
         
-        // Try to update via API instead of direct Supabase call to work around auth issues
-        const response = await fetch('/api/register-presence', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(participantData)
-        });
-        
-        // Fallback to direct Supabase call if API route is not available
-        if (!response.ok && response.status === 404) {
-          console.log("API route not available, falling back to direct Supabase call");
+        // Direct Supabase call
+        const { error } = await supabase
+          .from("meeting_participants")
+          .upsert(participantData, { onConflict: 'meeting_id,user_id' });
           
-          // Try direct Supabase call (might fail with 401 but that's ok)
-          const { error } = await supabase
-            .from("meeting_participants")
-            .upsert(participantData, { onConflict: 'meeting_id,user_id' });
-            
-          if (error) {
-            console.error("Failed to register presence in Supabase:", error);
-            
-            // Don't show error toast for auth issues - this is expected for anonymous users
-            if (error.code !== "401" && error.code !== "PGRST116") {
-              toast({
-                title: "Sync Warning",
-                description: "Participant list may not be fully synchronized",
-                variant: "default"
-              });
-            }
-          } else {
-            console.log(`Successfully registered presence for ${currentUser.name} in channel ${channelName}`);
+        if (error) {
+          console.error("Failed to register presence in Supabase:", error);
+          
+          // Don't show error toast for auth issues - this is expected for anonymous users
+          if (error.code !== "401" && error.code !== "PGRST116") {
+            toast({
+              title: "Sync Warning",
+              description: "Participant list may not be fully synchronized",
+              variant: "default"
+            });
           }
-        } else if (response.ok) {
-          console.log("Successfully registered presence via API");
         } else {
-          console.error("Failed to register presence via API:", response.status, response.statusText);
-          console.log("Response body:", await response.text());
+          console.log(`Successfully registered presence for ${currentUser.name} in channel ${channelName}`);
         }
       } catch (error) {
         console.error("Failed to initialize participant sync:", error);
@@ -88,13 +71,21 @@ export function usePresenceRegistration(
     // Handle tab close/browser close events to properly remove the participant
     const handleBeforeUnload = () => {
       if (currentUser && channelName) {
-        // Using sendBeacon for more reliable delivery during page unload
-        const endpoint = '/api/leave-meeting';
-        const data = JSON.stringify({
+        // Direct Supabase call to leave meeting using navigator.sendBeacon for reliability
+        const payload = {
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            meetingId: channelName,
+            userId: currentUser.id
+          })
+        };
+        
+        // Using fetch in beforeunload might not complete, so we use sendBeacon
+        navigator.sendBeacon('/api/leave-meeting', JSON.stringify({
           meetingId: channelName,
           userId: currentUser.id
-        });
-        navigator.sendBeacon(endpoint, data);
+        }));
         
         console.log("Sent leave meeting beacon on page unload");
       }

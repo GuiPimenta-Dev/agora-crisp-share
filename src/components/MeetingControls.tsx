@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MonitorX, Phone, Share2, Video, VideoOff } from "lucide-react";
@@ -52,7 +53,10 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
   };
 
   const handleToggleMute = async () => {
+    // First toggle the mute state in the UI and Agora
     toggleMute();
+    
+    // Then directly update the database with the new state (which is opposite of current isMuted)
     await updateState("audio_muted", !isMuted);
   };
 

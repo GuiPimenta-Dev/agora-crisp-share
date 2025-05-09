@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
@@ -7,6 +8,7 @@ import {
 } from "@/lib/agoraUtils";
 import { AgoraState } from "@/types/agora";
 import { IAgoraRTCClient } from "agora-rtc-sdk-ng";
+import { supabase } from "@/integrations/supabase/client";
 
 export function useAgoraAudioCall(
   agoraState: AgoraState,

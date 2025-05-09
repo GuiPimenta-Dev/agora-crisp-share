@@ -41,15 +41,11 @@ export function useAudioStatusSync(
           
         if (error) {
           console.error("Failed to update audio status in Supabase:", error);
-          
-          // Only show toast for non-authentication errors to avoid spamming
-          if (error.code !== "401" && error.code !== "PGRST116") {
-            toast({
-              title: "Sync Error",
-              description: "Failed to update audio status",
-              variant: "destructive"
-            });
-          }
+          toast({
+            title: "Sync Error",
+            description: "Failed to update audio status",
+            variant: "destructive"
+          });
         } else {
           console.log("Successfully updated audio status in database");
         }
