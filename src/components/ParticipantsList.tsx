@@ -6,6 +6,7 @@ import { Mic, MicOff, Users } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface ParticipantsListProps {
   remoteUsers: IAgoraRTCRemoteUser[];
@@ -26,6 +27,51 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
     
     console.log("Setting up realtime subscription for participants...");
     
+    // Fetch current participants to ensure the list is up-to-date
+    const fetchExistingParticipants = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("meeting_participants")
+          .select("*")
+          .eq("meeting_id", agoraState.channelName);
+          
+        if (error) {
+          console.error("Error fetching participants:", error);
+          return;
+        }
+        
+        // Initialize participants state with all existing participants
+        const participantsMap = {};
+        data.forEach(participant => {
+          participantsMap[participant.user_id] = {
+            id: participant.user_id,
+            name: participant.name,
+            avatar: participant.avatar,
+            role: participant.role,
+            audioEnabled: participant.audio_enabled,
+            isCurrent: currentUser?.id === participant.user_id
+          };
+          
+          // Show notification for existing participants 
+          // (only for participants other than the current user)
+          if (currentUser?.id !== participant.user_id) {
+            toast({
+              title: "Participant in meeting",
+              description: `${participant.name} (${participant.role}) is in the meeting`,
+            });
+          }
+        });
+        
+        setParticipants(participantsMap);
+        console.log("Loaded existing participants:", data.length);
+      } catch (err) {
+        console.error("Failed to fetch participants:", err);
+      }
+    };
+    
+    // First, fetch all existing participants
+    fetchExistingParticipants();
+    
     // Subscribe to changes in meeting_participants table
     const channel = supabase
       .channel('public:meeting_participants')
@@ -41,8 +87,16 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
           console.log("Received realtime update:", payload);
           
           // Handle different events
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          if (payload.eventType === 'INSERT') {
             const participantData = payload.new;
+            
+            // Don't notify about ourselves
+            if (currentUser?.id !== participantData.user_id) {
+              toast({
+                title: "Participant joined",
+                description: `${participantData.name} (${participantData.role}) joined the meeting`,
+              });
+            }
             
             setParticipants(prev => ({
               ...prev,
@@ -57,8 +111,31 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
             }));
           } 
           
+          if (payload.eventType === 'UPDATE') {
+            const participantData = payload.new;
+            
+            setParticipants(prev => ({
+              ...prev,
+              [participantData.user_id]: {
+                ...prev[participantData.user_id],
+                name: participantData.name,
+                avatar: participantData.avatar,
+                role: participantData.role,
+                audioEnabled: participantData.audio_enabled
+              }
+            }));
+          }
+          
           if (payload.eventType === 'DELETE') {
             const participantData = payload.old;
+            
+            // Don't notify about ourselves
+            if (currentUser?.id !== participantData.user_id) {
+              toast({
+                title: "Participant left",
+                description: `${participantData.name} (${participantData.role}) left the meeting`,
+              });
+            }
             
             setParticipants(prev => {
               const newParticipants = { ...prev };

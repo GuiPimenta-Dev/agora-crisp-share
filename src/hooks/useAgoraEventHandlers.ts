@@ -203,21 +203,6 @@ export function useAgoraEventHandlers(
           console.error("Error removing participant when user left:", err);
         });
       }
-      
-      if (participants[userId]) {
-        const userName = participants[userId].name;
-        
-        // Show toast notification to all remaining users
-        toast({
-          title: "User left",
-          description: `${userName} left the call`,
-        });
-      } else {
-        toast({
-          title: "User left",
-          description: `User ${user.uid} left the call`,
-        });
-      }
     });
 
     // Clean up
