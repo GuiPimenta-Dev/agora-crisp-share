@@ -15,25 +15,27 @@ import MeetingApiRoutes from "./api/MeetingApiRoutes";
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="ui-theme">
-      <BrowserRouter>
+    <React.StrictMode>
+      <ThemeProvider defaultTheme="system" storageKey="ui-theme">
         <AgoraProvider>
           {/* API Routes Handler */}
           <MeetingApiRoutes />
           
-          <TooltipProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/join" element={<JoinMeeting />} />
-              <Route path="/meeting/:meetingId" element={<MeetingPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </TooltipProvider>
+          <BrowserRouter>
+            <TooltipProvider>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/join" element={<JoinMeeting />} />
+                <Route path="/meeting/:meetingId" element={<MeetingPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </TooltipProvider>
+          </BrowserRouter>
           
           <Toaster />
         </AgoraProvider>
-      </BrowserRouter>
-    </ThemeProvider>
+      </ThemeProvider>
+    </React.StrictMode>
   );
 }
 

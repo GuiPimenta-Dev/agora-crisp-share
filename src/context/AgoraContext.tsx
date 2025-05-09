@@ -40,6 +40,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [currentUser, setCurrentUser] = useState<MeetingUser | null>(null);
   const [participants, setParticipants] = useState<Record<string, MeetingUser>>({});
   const [clientInitialized, setClientInitialized] = useState(false);
+  const [joinInProgress, setJoinInProgress] = useState(false);
   const clientRef = useRef<IAgoraRTCClient | undefined>();
 
   // Initialize Agora client immediately on component mount
@@ -135,6 +136,26 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [agoraState.channelName]);
 
   const joinWithUser = async (channelName: string, user: MeetingUser) => {
+    // Prevent multiple simultaneous join attempts
+    if (joinInProgress) {
+      console.log("Join already in progress, ignoring duplicate request");
+      return false;
+    }
+    
+    // Check if already joined the same channel
+    if (agoraState.joinState && agoraState.channelName === channelName) {
+      console.log(`Already joined channel ${channelName}, no need to rejoin`);
+      
+      // Still update current user and participants
+      setCurrentUser(user);
+      setParticipants(prev => ({
+        ...prev,
+        [user.id]: user
+      }));
+      
+      return true;
+    }
+    
     if (!agoraState.client) {
       console.error("Cannot join: Agora client not initialized");
       toast({
@@ -145,19 +166,27 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return false;
     }
     
-    setCurrentUser(user);
-    
-    // Add user to participants
-    setParticipants(prev => ({
-      ...prev,
-      [user.id]: user
-    }));
-    
-    // Always enable audio for direct link joins
-    const audioEnabled = true;
-    
     try {
+      setJoinInProgress(true);
+      
+      setCurrentUser(user);
+      
+      // Add user to participants
+      setParticipants(prev => ({
+        ...prev,
+        [user.id]: user
+      }));
+      
+      // Always enable audio for direct link joins
+      const audioEnabled = true;
+      
+      console.log(`Joining audio call for channel ${channelName}...`);
       const joined = await joinAudioCall(channelName, audioEnabled);
+      
+      if (!joined) {
+        console.error(`Failed to join audio call for channel ${channelName}`);
+      }
+      
       return joined;
     } catch (error) {
       console.error("Error in joinWithUser:", error);
@@ -167,6 +196,8 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         variant: "destructive"
       });
       return false;
+    } finally {
+      setJoinInProgress(false);
     }
   };
 

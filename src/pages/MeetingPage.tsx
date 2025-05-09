@@ -17,10 +17,18 @@ const MeetingPage: React.FC = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const [joinRetries, setJoinRetries] = useState(0);
+  const [joinAttempted, setJoinAttempted] = useState(false);
   
   useEffect(() => {
     if (!meetingId) {
       setError("Invalid meeting ID");
+      setIsJoining(false);
+      return;
+    }
+    
+    // Check if we're already in the correct channel
+    if (agoraState.joinState && agoraState.channelName === meetingId) {
+      console.log(`Already joined ${meetingId}, no need to rejoin`);
       setIsJoining(false);
       return;
     }
@@ -43,16 +51,16 @@ const MeetingPage: React.FC = () => {
       return () => clearTimeout(timer);
     }
     
-    // Only proceed when client is ready
-    if (agoraState.client && !agoraState.joinState) {
+    // Only join if we haven't attempted yet
+    if (agoraState.client && !joinAttempted) {
       joinMeeting();
-    } else if (agoraState.joinState) {
-      // Already joined
-      setIsJoining(false);
     }
     
     async function joinMeeting() {
       try {
+        // Set join attempted flag to prevent multiple attempts
+        setJoinAttempted(true);
+        
         // Check for URL parameters first (direct access via link)
         const urlUserId = searchParams.get("id");
         const urlUserName = searchParams.get("name");
@@ -82,9 +90,11 @@ const MeetingPage: React.FC = () => {
           avatar: userAvatar
         };
         
+        console.log(`Attempting to join meeting ${meetingId} as ${userName}`);
         const result = await callJoinMeeting(meetingId, user);
         
         if (result.success && result.user) {
+          console.log("Successfully registered with meeting API");
           // Set audioEnabled to true for direct link joins to avoid disabled track issue
           const joinSuccess = await joinWithUser(meetingId, result.user);
           
@@ -107,7 +117,7 @@ const MeetingPage: React.FC = () => {
         setIsJoining(false);
       }
     }
-  }, [meetingId, agoraState.client, joinWithUser, toast, searchParams, joinRetries, agoraState.joinState]);
+  }, [meetingId, agoraState.client, joinWithUser, toast, searchParams, joinRetries, joinAttempted, agoraState.joinState, agoraState.channelName]);
   
   if (isJoining) {
     return (
