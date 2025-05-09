@@ -207,6 +207,7 @@ export type Database = {
       meeting_participants: {
         Row: {
           audio_enabled: boolean
+          audio_muted: boolean | null
           avatar: string
           created_at: string
           id: string
@@ -219,6 +220,7 @@ export type Database = {
         }
         Insert: {
           audio_enabled?: boolean
+          audio_muted?: boolean | null
           avatar: string
           created_at?: string
           id?: string
@@ -231,6 +233,7 @@ export type Database = {
         }
         Update: {
           audio_enabled?: boolean
+          audio_muted?: boolean | null
           avatar?: string
           created_at?: string
           id?: string

@@ -42,7 +42,7 @@ export function useParticipantsRealtime(
             .from("profiles")
             .select("name, summoner, avatar")
             .eq("id", newParticipant.user_id)
-            .single();
+            .maybeSingle();
           
           const displayName = profileData?.summoner || profileData?.name || `User-${newParticipant.user_id.substring(0, 4)}`;
           

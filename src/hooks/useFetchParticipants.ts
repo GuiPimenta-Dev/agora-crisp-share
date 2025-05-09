@@ -70,7 +70,7 @@ export function useFetchParticipants(meetingId?: string) {
               avatar: profile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.name || "User")}&background=random`,
               role: participant.role as any,
               audioEnabled: participant.audio_enabled,
-              audioMuted: participant.audio_muted !== undefined ? participant.audio_muted : true, // Default to muted if not specified
+              audioMuted: participant.audio_muted,
               screenSharing: participant.screen_sharing || false,
               joinedAt: participant.created_at
             };

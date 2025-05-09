@@ -78,6 +78,7 @@ export function useAgoraParticipants(
               avatar: newParticipant.avatar,
               role: newParticipant.role,
               audioEnabled: newParticipant.audio_enabled,
+              audioMuted: newParticipant.audio_muted,
               screenSharing: newParticipant.screen_sharing || false,
               isCurrent: isSelf
             }
@@ -94,6 +95,7 @@ export function useAgoraParticipants(
               avatar: updatedParticipant.avatar,
               role: updatedParticipant.role,
               audioEnabled: updatedParticipant.audio_enabled,
+              audioMuted: updatedParticipant.audio_muted,
               screenSharing: updatedParticipant.screen_sharing || false
             }
           }));
