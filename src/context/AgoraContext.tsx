@@ -322,16 +322,19 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (result.success && result.participants) {
           setParticipants(result.participants);
           
-          // Também atualizar os participantes no estado do Agora
+          // Also update participants in Agora state
           setAgoraState(prev => ({
             ...prev,
             participants: result.participants
           }));
         }
+        return Promise.resolve();
       } catch (error) {
         console.error("Error refreshing participants:", error);
+        return Promise.reject(error);
       }
     }
+    return Promise.resolve();
   };
 
   // Create context value
