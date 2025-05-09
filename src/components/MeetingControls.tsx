@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MonitorX, Phone, Share2 } from "lucide-react";
+import { Mic, MicOff, MonitorX, Phone, Share2, Video, VideoOff } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -10,7 +10,16 @@ interface MeetingControlsProps {
 }
 
 const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
-  const { isMuted, toggleMute, isScreenSharing, startScreenShare, stopScreenShare, leaveAudioCall } = useAgora();
+  const { 
+    isMuted, 
+    toggleMute, 
+    isScreenSharing, 
+    startScreenShare, 
+    stopScreenShare, 
+    leaveAudioCall,
+    isScreenRecording,
+    toggleScreenRecording
+  } = useAgora();
 
   return (
     <div className={`flex items-center justify-center gap-4 p-4 ${className}`}>
@@ -43,6 +52,22 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
         </TooltipTrigger>
         <TooltipContent>
           <p>{isScreenSharing ? "Stop sharing" : "Share screen"}</p>
+        </TooltipContent>
+      </Tooltip>
+      
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant={isScreenRecording ? "destructive" : "default"}
+            size="icon"
+            onClick={toggleScreenRecording}
+            className="h-12 w-12 rounded-full"
+          >
+            {isScreenRecording ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{isScreenRecording ? "Stop recording" : "Record screen"}</p>
         </TooltipContent>
       </Tooltip>
 

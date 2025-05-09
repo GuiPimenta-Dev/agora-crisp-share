@@ -32,6 +32,8 @@ export interface AgoraContextType {
   remoteScreenShareUser: IAgoraRTCRemoteUser | undefined;
   generateMeetingLink: () => string;
   downloadRecording: () => Promise<void>;
+  isScreenRecording: boolean;
+  toggleScreenRecording: () => void;
 }
 
 export interface RecordingSettings {

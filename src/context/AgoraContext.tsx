@@ -7,6 +7,7 @@ import { useAgoraAudioCall } from "@/hooks/useAgoraAudioCall";
 import { useAgoraScreenShare } from "@/hooks/useAgoraScreenShare";
 import { useAgoraEventHandlers } from "@/hooks/useAgoraEventHandlers";
 import { useAgoraRecording } from "@/hooks/useAgoraRecording";
+import { useScreenRecording } from "@/hooks/useScreenRecording";
 import { generateShareableLink } from "@/lib/tokenGenerator";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,6 +56,9 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     agoraState,
     setAgoraState
   );
+  
+  // New screen recording hook
+  const { isRecording: isScreenRecording, toggleRecording: toggleScreenRecording } = useScreenRecording();
 
   // Initialize Agora client
   React.useEffect(() => {
@@ -103,6 +107,8 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     remoteScreenShareUser,
     generateMeetingLink,
     downloadRecording,
+    isScreenRecording,
+    toggleScreenRecording,
   };
 
   return <AgoraContext.Provider value={contextValue}>{children}</AgoraContext.Provider>;
