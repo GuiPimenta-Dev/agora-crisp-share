@@ -1,4 +1,3 @@
-
 import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic, MicOff, Users, MonitorSmartphone, Crown, Gamepad2, User } from "lucide-react";
@@ -45,7 +44,6 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({ className = "" }) =
   };
 
   // Sort participants by role: coach first, then student, then listeners
-  // Updated to use the correct function name
   const sortedParticipants = [...Object.values(participants || {})].sort(sortParticipantsByRoleAndTime);
   
   return (

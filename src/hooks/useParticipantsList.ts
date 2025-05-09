@@ -21,7 +21,7 @@ export function useParticipantsList(meetingId?: string) {
 
   // Function to get sorted participants
   const getSortedParticipants = (): MeetingUser[] => {
-    return sortParticipantsByRoleAndTime(Object.values(participants));
+    return [...Object.values(participants)].sort(sortParticipantsByRoleAndTime);
   };
 
   return {
