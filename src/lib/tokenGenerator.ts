@@ -1,5 +1,11 @@
 
 import { RtcTokenBuilder, RtcRole } from "agora-access-token";
+// Import Buffer from the buffer package
+import { Buffer } from "buffer";
+
+// Make Buffer available globally for agora-access-token
+// This is needed because the library expects Buffer to be available
+window.Buffer = Buffer;
 
 const APP_ID = "52556fe6809a4624b3227a074c550aca";
 const APP_CERTIFICATE = "55d06787c77a4e43981b5bf290e91890";
@@ -21,14 +27,14 @@ export function generateToken(channelName: string, uid: number = 0): string {
   }
 
   try {
-    // For browser environments, we need to use a simpler token generation approach
-    // that doesn't rely on Node.js crypto functions
-    console.log("Generating mock token for channel:", channelName);
-    
-    // Generate a deterministic mock token based on input parameters
-    // This is NOT secure for production but works for demo purposes
-    const mockToken = `006${APP_ID}${btoa(APP_ID + channelName + uid + currentTimestamp)}`;
-    return mockToken;
+    return RtcTokenBuilder.buildTokenWithUid(
+      APP_ID,
+      APP_CERTIFICATE,
+      channelName,
+      uid,
+      RtcRole.PUBLISHER,
+      privilegeExpiredTs
+    );
   } catch (error) {
     console.error("Token generation error:", error);
     throw new Error("Failed to generate token. Please check your configuration.");

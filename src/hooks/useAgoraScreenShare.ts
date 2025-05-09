@@ -33,10 +33,7 @@ export function useAgoraScreenShare(
     }
     
     try {
-      // Solicitação de compartilhamento automático da tela inteira
-      const screenTrack = await createScreenVideoTrack({
-        screenSourceType: "screen", // "screen" representa a tela inteira
-      });
+      const screenTrack = await createScreenVideoTrack();
       
       // Publicar o track de vídeo
       await agoraState.client.publish(screenTrack);

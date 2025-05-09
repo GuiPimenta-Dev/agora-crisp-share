@@ -15,41 +15,18 @@ export function useAgoraAudioCall(
   setIsMuted: React.Dispatch<React.SetStateAction<boolean>>,
   setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
 ) {
-  const [joinAttempts, setJoinAttempts] = useState(0);
-  const MAX_JOIN_ATTEMPTS = 3;
-  
   const joinAudioCall = async (channelName: string, audioEnabled: boolean = true): Promise<boolean> => {
-    // Double check client initialization
     if (!agoraState.client) {
       console.error("Agora client not initialized in joinAudioCall");
-      
-      // Retry logic for missing client
-      if (joinAttempts < MAX_JOIN_ATTEMPTS) {
-        setJoinAttempts(prev => prev + 1);
-        const delay = Math.pow(2, joinAttempts) * 1000; // Exponential backoff
-        
-        console.log(`Retrying joinAudioCall in ${delay}ms (attempt ${joinAttempts + 1}/${MAX_JOIN_ATTEMPTS})...`);
-        
-        return new Promise(resolve => {
-          setTimeout(async () => {
-            const result = await joinAudioCall(channelName, audioEnabled);
-            resolve(result);
-          }, delay);
-        });
-      }
-      
       toast({
         title: "Error",
-        description: "Audio service not initialized. Please refresh and try again.",
+        description: "Agora client not initialized",
         variant: "destructive",
       });
       return false;
     }
     
     try {
-      // Reset join attempts counter
-      setJoinAttempts(0);
-      
       // Check if we're already in a channel
       if (agoraState.joinState && agoraState.localAudioTrack) {
         console.log("Already joined a channel, reusing existing connection");
@@ -95,32 +72,11 @@ export function useAgoraAudioCall(
         });
       } else {
         console.error("Failed to join channel:", channelName);
-        toast({
-          title: "Connection failed",
-          description: "Unable to join meeting. Please try again.",
-          variant: "destructive",
-        });
       }
       
       return joined;
     } catch (error) {
       console.error("Error joining audio call:", error);
-      
-      // Retry logic for errors during join
-      if (joinAttempts < MAX_JOIN_ATTEMPTS) {
-        setJoinAttempts(prev => prev + 1);
-        const delay = Math.pow(2, joinAttempts) * 1000; // Exponential backoff
-        
-        console.log(`Error in joinAudioCall, retrying in ${delay}ms (attempt ${joinAttempts + 1}/${MAX_JOIN_ATTEMPTS})...`);
-        
-        return new Promise(resolve => {
-          setTimeout(async () => {
-            const result = await joinAudioCall(channelName, audioEnabled);
-            resolve(result);
-          }, delay);
-        });
-      }
-      
       toast({
         title: "Connection failed",
         description: "Unable to join call. Please check your permissions.",
@@ -158,9 +114,6 @@ export function useAgoraAudioCall(
       isRecording: false,
       // Keep recordingId so we can download after leaving
       recordingId: agoraState.recordingId,
-      channelName: undefined,
-      participants: {},
-      joinAudioCallFunc: agoraState.joinAudioCallFunc
     });
     
     setIsScreenSharing(false);
@@ -172,8 +125,8 @@ export function useAgoraAudioCall(
     });
   };
 
-  const toggleMute = async (): Promise<void> => {
-    if (!agoraState.localAudioTrack) return Promise.resolve();
+  const toggleMute = () => {
+    if (!agoraState.localAudioTrack) return;
     
     const newMuteState = !agoraState.localAudioTrack.enabled;
     
@@ -186,8 +139,6 @@ export function useAgoraAudioCall(
         ? "Os outros participantes podem ouvir você agora" 
         : "Os outros participantes não podem ouvir você",
     });
-    
-    return Promise.resolve();
   };
 
   return {
