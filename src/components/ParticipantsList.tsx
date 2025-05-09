@@ -1,3 +1,4 @@
+
 import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic, MicOff, Users, MonitorSmartphone, Crown, Gamepad2, User } from "lucide-react";
@@ -8,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useParticipantsList } from "@/hooks/useParticipantsList";
 import { MeetingUser, Role } from "@/types/meeting";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface ParticipantsListProps {
   meetingId?: string;
@@ -54,6 +57,34 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
         return "bg-blue-500/10 text-blue-600 border-blue-500/20";
       default:
         return "bg-neutral-500/10 text-neutral-600 border-neutral-500/20";
+    }
+  };
+
+  // Helper function to update participant status in the database
+  const updateParticipantStatus = async (
+    participantId: string, 
+    field: "audio_muted" | "screen_sharing", 
+    value: boolean
+  ) => {
+    if (!meetingId) return;
+    
+    try {
+      const { error } = await supabase
+        .from("meeting_participants")
+        .update({ [field]: value })
+        .eq("meeting_id", meetingId)
+        .eq("user_id", participantId);
+        
+      if (error) {
+        console.error(`Failed to update ${field} status:`, error);
+        toast({
+          title: "Sync Error",
+          description: `Could not update participant ${field.replace('_', ' ')} status`,
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error(`Error updating participant ${field} status:`, err);
     }
   };
 
@@ -109,14 +140,17 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
           {sortedParticipants.map((participant) => {
             const isCurrentUser = currentUser && participant.id === currentUser.id;
             
-            // IMPORTANT: Use the audioMuted property directly instead of checking audioEnabled
+            // IMPORTANT: Make sure audio_muted starts as true if it's undefined
             const isAudioMuted = participant.audioMuted === undefined ? true : participant.audioMuted;
+            
+            // Ensure we're using the actual screen sharing status
+            const isScreenSharing = participant.screenSharing || false;
             
             return (
               <div 
                 key={participant.id} 
                 className={`flex items-center gap-3 p-2 rounded-md ${
-                  participant.screenSharing ? "bg-secondary/40" : ""
+                  isScreenSharing ? "bg-secondary/40" : ""
                 } ${
                   isCurrentUser ? "ring-1 ring-primary/20" : ""
                 }`}
@@ -152,7 +186,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
                 </div>
                 
                 <div className="flex items-center gap-2">
-                  {participant.screenSharing && (
+                  {isScreenSharing && (
                     <MonitorSmartphone className="h-4 w-4 text-blue-500" />
                   )}
                   {!isAudioMuted ? (
@@ -168,6 +202,6 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
       </ScrollArea>
     </Card>
   );
-}
+};
 
 export default ParticipantsList;
