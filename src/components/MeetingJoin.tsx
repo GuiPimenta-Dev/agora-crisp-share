@@ -7,45 +7,84 @@ import { useAgora } from "@/context/AgoraContext";
 import { Loader2, Copy, Link, Check, MonitorPlay } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { getChannelFromUrl } from "@/lib/tokenGenerator";
+import { callCreateMeeting, callJoinMeeting } from "@/api/MeetingApiRoutes";
+import { useNavigate } from "react-router-dom";
 
 const MeetingJoin = () => {
-  const [channelName, setChannelName] = useState("main");
+  const [channelName, setChannelName] = useState("");
+  const [userName, setUserName] = useState(localStorage.getItem("userName") || "");
   const [isJoining, setIsJoining] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
-  const { joinAudioCall, generateMeetingLink } = useAgora();
+  const { joinWithUser } = useAgora();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  // Check for channel name in URL and auto-join
+  // Generate a mock user ID if needed
   useEffect(() => {
-    const urlChannel = getChannelFromUrl();
-    if (urlChannel) {
-      setChannelName(urlChannel);
-      // Auto-join when coming from a link
-      handleJoin(urlChannel);
+    if (!localStorage.getItem("userId")) {
+      localStorage.setItem("userId", `user-${Date.now()}`);
     }
   }, []);
 
-  const handleJoin = async (channelNameParam?: string) => {
-    const channelToJoin = channelNameParam || channelName;
-    
-    if (!channelToJoin.trim()) return;
+  const createMeeting = async () => {
+    if (!channelName.trim() || !userName.trim()) {
+      toast({
+        title: "Error",
+        description: "Meeting ID and your name are required",
+        variant: "destructive",
+      });
+      return;
+    }
     
     setIsJoining(true);
+    
+    // Save user name for future use
+    localStorage.setItem("userName", userName);
+    
     try {
-      const joined = await joinAudioCall(channelToJoin);
+      // Create a new meeting
+      const meetingId = channelName || `meeting-${Date.now()}`;
+      const userId = localStorage.getItem("userId") || `user-${Date.now()}`;
       
-      if (!joined) {
+      const createResult = await callCreateMeeting({
+        id: meetingId,
+        coach_id: userId, // Current user becomes the coach
+        student_id: "", // No student yet
+      });
+      
+      if (!createResult.success) {
         toast({
-          title: "Failed to join",
-          description: "Could not join the meeting. Please check if the Agora App ID is configured correctly.",
+          title: "Error creating meeting",
+          description: createResult.error || "Failed to create meeting",
+          variant: "destructive",
+        });
+        setIsJoining(false);
+        return;
+      }
+      
+      // Join the created meeting
+      const joinResult = await callJoinMeeting(meetingId, {
+        id: userId,
+        name: userName,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`,
+      });
+      
+      if (joinResult.success && joinResult.user) {
+        await joinWithUser(meetingId, joinResult.user);
+        // Redirect to meeting page
+        navigate(`/meeting/${meetingId}`);
+      } else {
+        toast({
+          title: "Error joining meeting",
+          description: joinResult.error || "Failed to join meeting",
           variant: "destructive",
         });
       }
     } catch (error) {
-      console.error("Error joining meeting:", error);
+      console.error("Error creating/joining meeting:", error);
       toast({
         title: "Error",
-        description: "An error occurred while trying to join the meeting.",
+        description: "An unexpected error occurred",
         variant: "destructive",
       });
     } finally {
@@ -53,8 +92,24 @@ const MeetingJoin = () => {
     }
   };
 
+  const joinMeeting = async () => {
+    if (!channelName.trim() || !userName.trim()) {
+      toast({
+        title: "Error",
+        description: "Meeting ID and your name are required",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Redirect to meeting page - the join logic will happen there
+    navigate(`/meeting/${channelName}`);
+  };
+
   const copyLinkToClipboard = () => {
-    const link = generateMeetingLink();
+    if (!channelName.trim()) return;
+    
+    const link = `${window.location.origin}/meeting/${channelName}`;
     navigator.clipboard.writeText(link).then(() => {
       setLinkCopied(true);
       toast({
@@ -88,6 +143,19 @@ const MeetingJoin = () => {
         
         <CardContent>
           <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="username" className="text-sm font-medium">
+                Your Name
+              </label>
+              <Input
+                id="username"
+                placeholder="Enter your name"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                className="w-full bg-secondary/50 border-secondary glowing-border"
+              />
+            </div>
+            
             <div className="space-y-2">
               <label htmlFor="channel" className="text-sm font-medium">
                 Meeting ID
@@ -126,21 +194,39 @@ const MeetingJoin = () => {
         </CardContent>
         
         <CardFooter className="flex flex-col space-y-4">
-          <Button 
-            className="w-full sunset-button glow"
-            onClick={() => handleJoin()} 
-            disabled={isJoining || !channelName.trim()}
-          >
-            {isJoining ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Joining...
-              </>
-            ) : (
-              <>
-                <MonitorPlay className="mr-2 h-5 w-5" /> Join Meeting
-              </>
-            )}
-          </Button>
+          <div className="grid grid-cols-2 gap-4 w-full">
+            <Button 
+              className="w-full sunset-button glow"
+              onClick={createMeeting} 
+              disabled={isJoining || !channelName.trim() || !userName.trim()}
+            >
+              {isJoining ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Creating...
+                </>
+              ) : (
+                <>
+                  Create Meeting
+                </>
+              )}
+            </Button>
+            
+            <Button 
+              className="w-full sunset-button glow"
+              onClick={joinMeeting} 
+              disabled={isJoining || !channelName.trim() || !userName.trim()}
+            >
+              {isJoining ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Joining...
+                </>
+              ) : (
+                <>
+                  <MonitorPlay className="mr-2 h-5 w-5" /> Join Meeting
+                </>
+              )}
+            </Button>
+          </div>
           
           <p className="text-xs text-center text-muted-foreground">
             By joining, you agree to our Terms of Service and Privacy Policy

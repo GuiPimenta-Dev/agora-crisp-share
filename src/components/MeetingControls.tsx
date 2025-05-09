@@ -18,58 +18,87 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
     stopScreenShare, 
     leaveAudioCall,
     isScreenRecording,
-    toggleScreenRecording
+    toggleScreenRecording,
+    currentUser
   } = useAgora();
+
+  // Check if user can use audio
+  const canUseAudio = currentUser?.role === "coach" || currentUser?.role === "student";
+
+  // Check if user can share screen (only coach for now)
+  const canShareScreen = currentUser?.role === "coach";
 
   return (
     <div className={`flex items-center justify-center gap-4 p-4 ${className}`}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={isMuted ? "outline" : "default"}
-            size="icon"
-            onClick={toggleMute}
-            className="h-12 w-12 rounded-full"
-          >
-            {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{isMuted ? "Unmute" : "Mute"}</p>
-        </TooltipContent>
-      </Tooltip>
+      {canUseAudio ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={isMuted ? "outline" : "default"}
+              size="icon"
+              onClick={toggleMute}
+              className="h-12 w-12 rounded-full"
+            >
+              {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{isMuted ? "Unmute" : "Mute"}</p>
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              disabled
+              className="h-12 w-12 rounded-full opacity-50 cursor-not-allowed"
+            >
+              <MicOff className="h-5 w-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Audio disabled for listeners</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={isScreenSharing ? "destructive" : "default"}
-            size="icon"
-            onClick={isScreenSharing ? stopScreenShare : startScreenShare}
-            className="h-12 w-12 rounded-full"
-          >
-            {isScreenSharing ? <MonitorX className="h-5 w-5" /> : <Share2 className="h-5 w-5" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{isScreenSharing ? "Stop sharing" : "Share screen"}</p>
-        </TooltipContent>
-      </Tooltip>
+      {canShareScreen && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={isScreenSharing ? "destructive" : "default"}
+              size="icon"
+              onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+              className="h-12 w-12 rounded-full"
+            >
+              {isScreenSharing ? <MonitorX className="h-5 w-5" /> : <Share2 className="h-5 w-5" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{isScreenSharing ? "Stop sharing" : "Share screen"}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
       
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={isScreenRecording ? "destructive" : "default"}
-            size="icon"
-            onClick={toggleScreenRecording}
-            className="h-12 w-12 rounded-full"
-          >
-            {isScreenRecording ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{isScreenRecording ? "Stop recording" : "Record screen"}</p>
-        </TooltipContent>
-      </Tooltip>
+      {currentUser?.role === "coach" && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={isScreenRecording ? "destructive" : "default"}
+              size="icon"
+              onClick={toggleScreenRecording}
+              className="h-12 w-12 rounded-full"
+            >
+              {isScreenRecording ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{isScreenRecording ? "Stop recording" : "Record screen"}</p>
+          </TooltipContent>
+        </Tooltip>
+      )}
 
       <Tooltip>
         <TooltipTrigger asChild>

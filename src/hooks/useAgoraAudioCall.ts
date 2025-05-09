@@ -17,7 +17,7 @@ export function useAgoraAudioCall(
 ) {
   const { toast } = useToast();
 
-  const joinAudioCall = async (channelName: string): Promise<boolean> => {
+  const joinAudioCall = async (channelName: string, audioEnabled: boolean = true): Promise<boolean> => {
     if (!agoraState.client) {
       toast({
         title: "Erro",
@@ -29,6 +29,12 @@ export function useAgoraAudioCall(
     
     try {
       const localAudioTrack = await createMicrophoneAudioTrack();
+      
+      // Set initial audio state based on permissions
+      if (!audioEnabled) {
+        localAudioTrack.setEnabled(false);
+        setIsMuted(true);
+      }
       
       const joined = await joinChannel(
         agoraState.client,

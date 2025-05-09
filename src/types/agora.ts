@@ -6,6 +6,7 @@ import {
   ILocalVideoTrack,
   UID,
 } from "agora-rtc-sdk-ng";
+import { MeetingUser } from "./meeting";
 
 // Define types for our Agora client state
 export interface AgoraState {
@@ -22,7 +23,7 @@ export interface AgoraState {
 
 export interface AgoraContextType {
   agoraState: AgoraState;
-  joinAudioCall: (channelName: string) => Promise<boolean>;
+  joinAudioCall: (channelName: string, audioEnabled?: boolean) => Promise<boolean>;
   leaveAudioCall: () => Promise<void>;
   toggleMute: () => void;
   startScreenShare: () => Promise<void>;
@@ -34,6 +35,11 @@ export interface AgoraContextType {
   downloadRecording: () => Promise<void>;
   isScreenRecording: boolean;
   toggleScreenRecording: () => void;
+  // New meeting functionality
+  currentUser: MeetingUser | null;
+  participants: Record<string, MeetingUser>;
+  setParticipants: React.Dispatch<React.SetStateAction<Record<string, MeetingUser>>>;
+  joinWithUser: (channelName: string, user: MeetingUser) => Promise<boolean>;
 }
 
 export interface RecordingSettings {

@@ -10,6 +10,7 @@ import { useAgoraRecording } from "@/hooks/useAgoraRecording";
 import { useScreenRecording } from "@/hooks/useScreenRecording";
 import { generateShareableLink } from "@/lib/tokenGenerator";
 import { useToast } from "@/hooks/use-toast";
+import { MeetingUser } from "@/types/meeting";
 
 const AgoraContext = createContext<AgoraContextType | undefined>(undefined);
 
@@ -35,6 +36,8 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [isMuted, setIsMuted] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [currentUser, setCurrentUser] = useState<MeetingUser | null>(null);
+  const [participants, setParticipants] = useState<Record<string, MeetingUser>>({});
   const clientRef = useRef<IAgoraRTCClient | undefined>();
   const { toast } = useToast();
 
@@ -94,6 +97,22 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return generateShareableLink(agoraState.channelName);
   };
 
+  const joinWithUser = async (channelName: string, user: MeetingUser) => {
+    setCurrentUser(user);
+    
+    // Add user to participants
+    setParticipants(prev => ({
+      ...prev,
+      [user.id]: user
+    }));
+    
+    // Enable audio only if user has permission
+    const audioEnabled = user.role === "coach" || user.role === "student";
+    const joined = await joinAudioCall(channelName, audioEnabled);
+    
+    return joined;
+  };
+
   // Create context value
   const contextValue: AgoraContextType = {
     agoraState,
@@ -109,6 +128,11 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     downloadRecording,
     isScreenRecording,
     toggleScreenRecording,
+    // New meeting functionality
+    currentUser,
+    participants,
+    setParticipants,
+    joinWithUser,
   };
 
   return <AgoraContext.Provider value={contextValue}>{children}</AgoraContext.Provider>;
