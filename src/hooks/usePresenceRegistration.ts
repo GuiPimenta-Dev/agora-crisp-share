@@ -23,50 +23,15 @@ export function usePresenceRegistration(
       try {
         console.log(`Registering presence for user ${currentUser.id} in channel ${channelName}`);
         
-        // Small delay to ensure connection is ready
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Check if the current session is valid BEFORE attempting database operations
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData.session) {
-          console.warn("No active Supabase session, participant sync will fail");
-          toast({
-            title: "Authentication Required",
-            description: "Please login to enable participant synchronization",
-            variant: "destructive"
-          });
-          return; // Exit early if no session
-        }
-        
-        // Check if profile exists
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("summoner, name, avatar")
-          .eq("id", currentUser.id)
-          .single();
-          
-        if (profileError) {
-          console.error("Error fetching profile:", profileError);
-          toast({
-            title: "Error",
-            description: "Could not fetch user profile",
-            variant: "destructive"
-          });
-          return;
-        }
-          
-        const displayName = profileData?.summoner || profileData?.name || currentUser.name;
-        const avatarUrl = profileData?.avatar || currentUser.avatar;
-        
         // Update the meeting_participants table in Supabase to add ourselves
         const { error } = await supabase
           .from("meeting_participants")
           .upsert({
             meeting_id: channelName,
             user_id: currentUser.id,
-            name: displayName,
-            avatar: avatarUrl,
-            role: currentUser.role,
+            name: currentUser.name || "Anonymous User",
+            avatar: currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=random`,
+            role: currentUser.role || "listener",
             audio_enabled: agoraState.localAudioTrack ? !agoraState.localAudioTrack.muted : false,
             screen_sharing: false // Initialize with no screen sharing
           }, { onConflict: 'meeting_id,user_id' });
@@ -76,28 +41,24 @@ export function usePresenceRegistration(
           
           // Show a more helpful error message based on the error type
           if (error.code === "401" || error.code === "PGRST116") {
+            console.log("Authentication issue detected when registering presence");
             toast({
-              title: "Authentication Error",
-              description: "Please login to Supabase to enable participant synchronization",
-              variant: "destructive"
+              title: "Authentication Not Required",
+              description: "Continue using the meeting with limited synchronization",
+              variant: "default"
             });
           } else {
             toast({
-              title: "Sync Error",
-              description: "Failed to register presence in the meeting",
-              variant: "destructive"
+              title: "Sync Warning",
+              description: "Participant list may not be fully synchronized",
+              variant: "default"
             });
           }
         } else {
-          console.log(`Successfully registered presence for ${displayName} in channel ${channelName}`);
+          console.log(`Successfully registered presence for ${currentUser.name} in channel ${channelName}`);
         }
       } catch (error) {
         console.error("Failed to initialize participant sync:", error);
-        toast({
-          title: "Error",
-          description: "Failed to initialize participant synchronization",
-          variant: "destructive"
-        });
       }
     };
 
