@@ -1,6 +1,5 @@
-
 import React, { createContext, useContext, useState, useRef, useEffect } from "react";
-import AgoraRTC, { IAgoraRTCClient } from "agora-rtc-sdk-ng";
+import AgoraRTC, { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { createClient } from "@/lib/agoraUtils";
 import { AgoraState, AgoraContextType } from "@/types/agora";
 import { useAgoraAudioCall } from "@/hooks/useAgoraAudioCall";
@@ -13,10 +12,8 @@ import { toast } from "@/hooks/use-toast";
 import { MeetingUser } from "@/types/meeting";
 import { useAgoraParticipants } from "@/hooks/useAgoraParticipants";
 
-// Create context with undefined initial value
 const AgoraContext = createContext<AgoraContextType | undefined>(undefined);
 
-// Hook to access the context
 export const useAgora = () => {
   const context = useContext(AgoraContext);
   if (!context) {
@@ -25,9 +22,8 @@ export const useAgora = () => {
   return context;
 };
 
-// Provider component
 export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Core state
+  // State management
   const [agoraState, setAgoraState] = useState<AgoraState>({
     client: undefined,
     localAudioTrack: undefined,
@@ -38,36 +34,34 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     isRecording: false,
   });
 
-  // UI states
   const [isMuted, setIsMuted] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [currentUser, setCurrentUser] = useState<MeetingUser | null>(null);
   const [participants, setParticipants] = useState<Record<string, MeetingUser>>({});
-  
-  // Initialization state
   const [clientInitialized, setClientInitialized] = useState(false);
   const [joinInProgress, setJoinInProgress] = useState(false);
   const clientRef = useRef<IAgoraRTCClient | undefined>();
 
-  // Initialize Agora client
+  // Initialize Agora client immediately on component mount
   useEffect(() => {
     const initializeClient = async () => {
       try {
-        console.log("Initializing Agora client");
+        console.log("Initializing Agora client...");
         const client = createClient();
         clientRef.current = client;
         
-        setAgoraState(prev => ({
+        setAgoraState((prev) => ({
           ...prev,
           client
         }));
         
         setClientInitialized(true);
+        console.log("Agora client initialized successfully");
       } catch (error) {
         console.error("Failed to initialize Agora client:", error);
         toast({
           title: "Error",
-          description: "Audio service initialization failed",
+          description: "Failed to initialize audio service. Please refresh the page.",
           variant: "destructive"
         });
       }
@@ -76,8 +70,8 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     initializeClient();
   }, []);
 
-  // Initialize hooks with shared state
-  const { joinAudioCall, leaveAudioCall, toggleMute, isActionInProgress } = useAgoraAudioCall(
+  // Initialize hooks with our shared state
+  const { joinAudioCall, leaveAudioCall, toggleMute } = useAgoraAudioCall(
     agoraState, 
     setAgoraState, 
     setIsMuted,
@@ -88,7 +82,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     agoraState,
     setAgoraState,
     setIsScreenSharing,
-    currentUser
+    currentUser // Pass currentUser to useAgoraScreenShare
   );
   
   const { startRecording, stopRecording, downloadRecording } = useAgoraRecording(
@@ -97,10 +91,10 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     currentUser
   );
   
-  // Screen recording
+  // Screen recording hook
   const { isRecording: isScreenRecording, toggleRecording: toggleScreenRecording } = useScreenRecording();
 
-  // Set up event handlers
+  // Set up event handlers using our hook
   useAgoraEventHandlers(
     agoraState,
     setAgoraState, 
@@ -113,31 +107,34 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setParticipants
   );
 
-  // Use participants hook
+  // Use our new participants hook to manage participants list
   useAgoraParticipants(agoraState.channelName, setParticipants, currentUser);
   
-  // Find remote screen sharing user
+  // Find remote user who is sharing screen (if any)
   const remoteScreenShareUser = agoraState.remoteUsers.find(
     user => user.uid === agoraState.screenShareUserId
   );
 
-  // Generate meeting link
+  // Generate meeting link based on current channel
   const generateMeetingLink = () => {
     if (!agoraState.channelName) {
-      throw new Error("No active channel");
+      throw new Error("No active channel to generate link for");
     }
     return generateShareableLink(agoraState.channelName);
   };
 
-  // Join with user details
   const joinWithUser = async (channelName: string, user: MeetingUser) => {
+    // Prevent multiple simultaneous join attempts
     if (joinInProgress) {
+      console.log("Join already in progress, ignoring duplicate request");
       return false;
     }
     
+    // Check if already joined the same channel
     if (agoraState.joinState && agoraState.channelName === channelName) {
-      console.log(`Already joined ${channelName}`);
+      console.log(`Already joined channel ${channelName}, no need to rejoin`);
       
+      // Still update current user and participants
       setCurrentUser(user);
       setParticipants(prev => ({
         ...prev,
@@ -148,9 +145,10 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     
     if (!agoraState.client) {
+      console.error("Cannot join: Agora client not initialized");
       toast({
         title: "Connection Error",
-        description: "Audio service not initialized",
+        description: "Audio service not initialized. Please refresh and try again.",
         variant: "destructive"
       });
       return false;
@@ -159,22 +157,31 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       setJoinInProgress(true);
       
+      // Set current user with isCurrent flag
       setCurrentUser({ ...user, isCurrent: true });
       
+      // Add user to participants
       setParticipants(prev => ({
         ...prev,
         [user.id]: { ...user, isCurrent: true }
       }));
       
       // Always enable audio for direct link joins
-      const joined = await joinAudioCall(channelName, true);
+      const audioEnabled = true;
+      
+      console.log(`Joining audio call for channel ${channelName}...`);
+      const joined = await joinAudioCall(channelName, audioEnabled);
+      
+      if (!joined) {
+        console.error(`Failed to join audio call for channel ${channelName}`);
+      }
       
       return joined;
     } catch (error) {
-      console.error("Error joining:", error);
+      console.error("Error in joinWithUser:", error);
       toast({
         title: "Join Error",
-        description: "Failed to join meeting",
+        description: "Failed to join the audio meeting. Please try again.",
         variant: "destructive"
       });
       return false;
@@ -198,11 +205,11 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     downloadRecording,
     isScreenRecording,
     toggleScreenRecording,
+    // Meeting functionality
     currentUser,
     participants,
     setParticipants,
     joinWithUser,
-    isActionInProgress
   };
 
   return <AgoraContext.Provider value={contextValue}>{children}</AgoraContext.Provider>;

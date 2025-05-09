@@ -10,55 +10,23 @@ type ParticipantWithTimestamp = MeetingUser & {
 };
 
 /**
- * Simplified hook for handling realtime updates to meeting participants
+ * Hook for handling realtime updates to meeting participants
  */
 export function useParticipantsRealtime(
   meetingId: string | undefined,
   setParticipants: React.Dispatch<React.SetStateAction<Record<string, ParticipantWithTimestamp>>>
 ) {
-  // Track users we've notified about to prevent duplicate notifications
+  // Persist notifiedUsers across rerenders
   const notifiedUsersRef = useRef<Set<string>>(new Set<string>());
-  
-  // Track users we've seen before (any event)
-  const knownUsersRef = useRef<Set<string>>(new Set<string>());
-  
-  // Track last notification time for each user
-  const lastNotificationTimeRef = useRef<Record<string, number>>({});
+  // Track status updates to avoid showing "joined" notifications for them
+  const statusUpdateTimestampsRef = useRef<Record<string, number>>({});
   
   useEffect(() => {
     if (!meetingId) return;
     
-    // Generate a unique channel name to prevent conflicts
+    // Set up realtime subscription with a unique channel name
     const realtimeChannelName = generateRealtimeChannelName('participants', meetingId);
-    console.log(`Setting up realtime subscription: ${realtimeChannelName}`);
-    
-    // Helper function to check if we should show a notification
-    const shouldNotifyUser = (userId: string, eventType: string): boolean => {
-      // Don't notify for users we've already notified about
-      if (notifiedUsersRef.current.has(userId)) {
-        return false;
-      }
-      
-      // Check if we've shown a notification for this user recently
-      const now = Date.now();
-      const lastTime = lastNotificationTimeRef.current[userId] || 0;
-      const timeSinceLastNotification = now - lastTime;
-      
-      // Don't notify more than once every 10 seconds for the same user
-      if (timeSinceLastNotification < 10000) {
-        return false;
-      }
-      
-      // Update last notification time
-      lastNotificationTimeRef.current[userId] = now;
-      
-      // For joins, add to the notified set so we don't notify again
-      if (eventType === 'join') {
-        notifiedUsersRef.current.add(userId);
-      }
-      
-      return true;
-    };
+    console.log(`Setting up realtime subscription on channel: ${realtimeChannelName}`);
     
     // Create the channel subscription
     const participantsSubscription = supabase
@@ -68,20 +36,16 @@ export function useParticipantsRealtime(
         schema: 'public', 
         table: 'meeting_participants',
         filter: `meeting_id=eq.${meetingId}`
-      }, (payload) => {
-        console.log('Participant update received:', payload);
+      }, async (payload) => {
+        console.log('Realtime participant update received:', payload);
         
-        // Helper to check if this is just a status update
+        // Helper function to determine if an update is just a status change
         const isStatusUpdateOnly = (oldData: any, newData: any) => {
-          // These fields can change without triggering notifications
+          // Check if only these specific fields changed
           const statusFields = ['audio_enabled', 'audio_muted', 'screen_sharing'];
           
-          // Check if only status fields changed
           for (const key in newData) {
-            if (
-              !statusFields.includes(key) && 
-              newData[key] !== oldData?.[key]
-            ) {
+            if (!statusFields.includes(key) && newData[key] !== oldData[key]) {
               return false;
             }
           }
@@ -92,76 +56,69 @@ export function useParticipantsRealtime(
           const newParticipant = payload.new as any;
           const userId = newParticipant.user_id;
           
-          // Skip if we already know this user
-          if (knownUsersRef.current.has(userId)) {
-            console.log(`User ${userId} is already known, treating as status update`);
-            
-            // Just update the participant data without notification
-            setParticipants(prev => ({
-              ...prev,
-              [userId]: {
-                id: userId,
-                name: newParticipant.name,
-                avatar: newParticipant.avatar,
-                role: newParticipant.role,
-                audioEnabled: newParticipant.audio_enabled,
-                audioMuted: newParticipant.audio_muted,
-                screenSharing: newParticipant.screen_sharing || false,
-                joinedAt: newParticipant.created_at
-              }
-            }));
-            return;
-          }
+          // Fetch the user profile for the new participant
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("name, summoner, avatar")
+            .eq("id", userId)
+            .maybeSingle();
           
-          // Mark as known now
-          knownUsersRef.current.add(userId);
+          const displayName = profileData?.summoner || profileData?.name || `User-${userId.substring(0, 4)}`;
           
-          // Notify about new participant (if we should)
-          if (shouldNotifyUser(userId, 'join')) {
-            toast({
-              title: "New participant",
-              description: `${newParticipant.name} joined the meeting`
-            });
-          }
-
-          // Add to participants state
+          // Add the new participant
           setParticipants(prev => ({
             ...prev,
             [userId]: {
               id: userId,
-              name: newParticipant.name,
-              avatar: newParticipant.avatar,
-              role: newParticipant.role,
+              name: displayName,
+              avatar: profileData?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`,
+              role: newParticipant.role as any,
               audioEnabled: newParticipant.audio_enabled,
               audioMuted: newParticipant.audio_muted,
               screenSharing: newParticipant.screen_sharing || false,
               joinedAt: newParticipant.created_at
             }
           }));
+          
+          // Only notify new participants once
+          if (!notifiedUsersRef.current.has(userId)) {
+            toast({
+              title: "New participant",
+              description: `${displayName} joined the meeting`
+            });
+            notifiedUsersRef.current.add(userId);
+          }
         }
         else if (payload.eventType === 'UPDATE') {
           const updatedParticipant = payload.new as any;
           const oldParticipant = payload.old as any;
           const userId = updatedParticipant.user_id;
           
-          // Add to known users
-          knownUsersRef.current.add(userId);
+          // Record the timestamp of this status update
+          statusUpdateTimestampsRef.current[userId] = Date.now();
           
-          // Check if this is just a status update
-          const statusOnly = isStatusUpdateOnly(oldParticipant, updatedParticipant);
+          // Check if this is just a status update (mute/unmute/screen sharing)
+          const isStatusUpdate = isStatusUpdateOnly(oldParticipant, updatedParticipant);
           
-          // Update the participant in state
+          if (isStatusUpdate) {
+            console.log("This is just a status update, not showing participant joined notification");
+          }
+          
+          // Update the participant's data while preserving other properties
           setParticipants(prev => {
             const existing = prev[userId];
             if (!existing) return prev;
+            
+            console.log(`Updating participant ${userId}:`, {
+              audioEnabled: updatedParticipant.audio_enabled,
+              audioMuted: updatedParticipant.audio_muted,
+              screenSharing: updatedParticipant.screen_sharing
+            });
             
             return {
               ...prev,
               [userId]: {
                 ...existing,
-                name: updatedParticipant.name || existing.name,
-                avatar: updatedParticipant.avatar || existing.avatar,
-                role: updatedParticipant.role || existing.role,
                 audioEnabled: updatedParticipant.audio_enabled,
                 audioMuted: updatedParticipant.audio_muted,
                 screenSharing: updatedParticipant.screen_sharing || false
@@ -173,20 +130,19 @@ export function useParticipantsRealtime(
           const deletedParticipant = payload.old as any;
           const userId = deletedParticipant.user_id;
           
-          // Only notify about leaves for known users
-          if (knownUsersRef.current.has(userId) && shouldNotifyUser(userId, 'leave')) {
-            toast({
-              title: "Participant left",
-              description: `${deletedParticipant.name} left the meeting`
-            });
-          }
-          
-          // Remove from tracked sets
-          knownUsersRef.current.delete(userId);
-          notifiedUsersRef.current.delete(userId);
-          
-          // Remove from state
           setParticipants(prev => {
+            const participant = prev[userId];
+            
+            if (participant) {
+              toast({
+                title: "Participant left",
+                description: `${participant.name} left the meeting`
+              });
+            }
+            
+            // Remove from our notification tracking set
+            notifiedUsersRef.current.delete(userId);
+            
             const newParticipants = { ...prev };
             delete newParticipants[userId];
             return newParticipants;
@@ -196,8 +152,10 @@ export function useParticipantsRealtime(
       .subscribe((status) => {
         console.log(`Realtime subscription status: ${status}`);
       });
-    
-    // Cleanup on unmount
+
+    console.log("Realtime subscription set up for meeting participants");
+
+    // Clean up subscription when component unmounts
     return () => {
       console.log(`Cleaning up realtime subscription for ${realtimeChannelName}`);
       supabase.removeChannel(participantsSubscription);
