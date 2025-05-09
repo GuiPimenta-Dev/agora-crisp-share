@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MeetingUser } from "@/types/meeting";
@@ -256,9 +257,13 @@ export function useAgoraParticipants(
           const isLikelyStatusUpdate = now - lastStatusUpdate < 3000;
           
           if (!isSelf && !isLikelyStatusUpdate && shouldShowNotification(userId, 'leave')) {
+            // Fix: Add type assertion and default values for deleted participant
+            const participantName = deletedParticipant && typeof deletedParticipant === 'object' ? 
+              (deletedParticipant.name as string || 'Unknown user') : 'Unknown user';
+            
             toast({
               title: "Participant left",
-              description: `${deletedParticipant.name} left the meeting`
+              description: `${participantName} left the meeting`
             });
           }
           
