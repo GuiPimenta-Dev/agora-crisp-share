@@ -99,11 +99,13 @@ export function useParticipantsList(meetingId?: string) {
     
     // Enable realtime for meeting_participants table - this is important
     // to ensure Supabase is broadcasting changes for this table
-    supabase.rpc('enable_realtime', { table_name: 'meeting_participants' })
-      .then(({ error }) => {
-        if (error) console.error("Error enabling realtime:", error.message);
-        else console.log("Realtime enabled for meeting_participants table");
-      });
+    // Using type assertion to bypass TypeScript checks since the function exists in the database
+    (supabase.rpc as any)('enable_realtime', { 
+      table_name: 'meeting_participants' 
+    }).then(({ error }) => {
+      if (error) console.error("Error enabling realtime:", error.message);
+      else console.log("Realtime enabled for meeting_participants table");
+    });
     
     const participantsSubscription = supabase
       .channel(realtimeChannelName)
