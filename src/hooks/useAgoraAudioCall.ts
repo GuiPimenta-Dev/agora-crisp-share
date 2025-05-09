@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
@@ -15,7 +14,7 @@ export function useAgoraAudioCall(
   setIsMuted: React.Dispatch<React.SetStateAction<boolean>>,
   setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
 ) {
-  const joinAudioCall = async (channelName: string, audioEnabled: boolean = true): Promise<boolean> => {
+  const joinAudioCall = async (channelName: string, audioEnabled: boolean = false): Promise<boolean> => {
     if (!agoraState.client) {
       console.error("Agora client not initialized in joinAudioCall");
       toast({
