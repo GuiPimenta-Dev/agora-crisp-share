@@ -86,25 +86,33 @@ export function useAgoraEventHandlers(
 
     client.on("user-left", (user) => {
       // Make sure to check if the leaving user was sharing screen
-      const wasShareUser = user.uid === client.screenShareUserId;
-      
-      setAgoraState(prev => ({
-        ...prev,
-        remoteUsers: prev.remoteUsers.filter(u => u.uid !== user.uid),
-        screenShareUserId: prev.screenShareUserId === user.uid ? undefined : prev.screenShareUserId
-      }));
+      // FIX: Use agoraState.screenShareUserId instead of client.screenShareUserId
+      setAgoraState(prev => {
+        // Check if the leaving user was sharing screen
+        const wasShareUser = prev.screenShareUserId === user.uid;
+        
+        return {
+          ...prev,
+          remoteUsers: prev.remoteUsers.filter(u => u.uid !== user.uid),
+          screenShareUserId: prev.screenShareUserId === user.uid ? undefined : prev.screenShareUserId
+        };
+      });
       
       toast({
         title: "Usuário saiu",
         description: `Usuário ${user.uid} saiu da chamada`,
       });
       
-      if (wasShareUser) {
-        toast({
-          title: "Compartilhamento finalizado",
-          description: "O usuário que estava compartilhando a tela saiu da chamada",
-        });
-      }
+      // Check if the leaving user was sharing screen based on the state comparison
+      setAgoraState(prev => {
+        if (prev.screenShareUserId === user.uid) {
+          toast({
+            title: "Compartilhamento finalizado",
+            description: "O usuário que estava compartilhando a tela saiu da chamada",
+          });
+        }
+        return prev;
+      });
     });
 
     // Clean up
