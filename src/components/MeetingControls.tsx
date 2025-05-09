@@ -31,51 +31,10 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
   const canUseAudio = currentUser?.role === "coach" || currentUser?.role === "student";
   const canShareScreen = currentUser?.role === "coach" || currentUser?.role === "student";
 
-  // Guaranteed atomic update of participant state in Supabase
-  const updateState = async (field: "audio_muted" | "screen_sharing", value: boolean) => {
-    const userId = currentUser?.id;
-    const meetingId = agoraState?.channelName;
-
-    if (!userId || !meetingId) {
-      console.warn("Missing userId or meetingId for update");
-      return false;
-    }
-
-    try {
-      // If updating audio_muted, also update audio_enabled (opposite value)
-      const updateData = field === "audio_muted" 
-        ? { [field]: value, audio_enabled: !value }
-        : { [field]: value };
-      
-      // Use a more detailed structure to capture response and error info
-      const { error } = await supabase
-        .from("meeting_participants")
-        .update(updateData)
-        .eq("user_id", userId)
-        .eq("meeting_id", meetingId);
-
-      if (error) {
-        console.error(`Error updating ${field}:`, error.message);
-        
-        toast({
-          title: "Sync Error",
-          description: `Could not update ${field.replace('_', ' ')} status: ${error.message}`,
-          variant: "destructive"
-        });
-        return false;
-      } else {
-        return true;
-      }
-    } catch (err) {
-      console.error(`Exception updating ${field}:`, err);
-      return false;
-    }
-  };
-
   const handleToggleMute = async () => {
-    // Prevent rapid clicks - enforced 1.5s cooldown
+    // Prevent rapid clicks - enforced 3s cooldown
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 1500 || actionInProgressRef.current) {
+    if (now - lastActionTimeRef.current < 3000 || actionInProgressRef.current) {
       console.log("Action cooldown active or action in progress, ignoring click");
       return;
     }
@@ -85,29 +44,23 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
     actionInProgressRef.current = true;
     
     try {
-      // Toggle the UI first for immediate feedback - this is safe because we'll revert on error
-      // This improves perceived responsiveness
+      // Simply call toggleMute - the sync will happen via the effect in useAudioStatusSync
       toggleMute();
       
-      // Then update the database with the new state (now using the updated isMuted value)
-      // This ensures database is consistent with local state
-      const updatedValue = !isMuted; // New value is opposite of previous state
-      await updateState("audio_muted", updatedValue);
-    } catch (error) {
-      console.error("Toggle mute failed:", error);
-      // Don't revert the UI state - let the sync hook handle it
+      // No need to manually update the database here, as the useAudioStatusSync
+      // will handle this when it detects the change in the audio track's muted state
     } finally {
       // Allow new actions after a longer delay
       setTimeout(() => {
         actionInProgressRef.current = false;
-      }, 1500);
+      }, 3000);
     }
   };
 
   const handleToggleScreenShare = async () => {
-    // Prevent rapid clicks - enforced 1.5s cooldown
+    // Prevent rapid clicks - enforced 3s cooldown
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 1500 || actionInProgressRef.current) {
+    if (now - lastActionTimeRef.current < 3000 || actionInProgressRef.current) {
       return;
     }
     
@@ -116,16 +69,10 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
     
     try {
       if (isScreenSharing) {
-        // First update database
-        await updateState("screen_sharing", false);
-        // Then stop screen share locally
         await stopScreenShare();
       } else {
         try {
-          // First start screen share
           await startScreenShare();
-          // If successful, update database
-          await updateState("screen_sharing", true);
         } catch (error) {
           console.error("Screen share failed:", error);
           toast({
@@ -139,7 +86,7 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
       // Allow new actions after a longer delay
       setTimeout(() => {
         actionInProgressRef.current = false;
-      }, 1500);
+      }, 3000);
     }
   };
 

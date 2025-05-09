@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
   createMicrophoneAudioTrack, 
@@ -16,7 +16,8 @@ export function useAgoraAudioCall(
   setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
 ) {
   // Keep track of last update time to throttle rapid state changes
-  const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
+  const lastUpdateTimeRef = useRef<number>(0);
+  const pendingMuteStateRef = useRef<boolean | null>(null);
 
   // Sync UI mute state with track mute state when track changes
   useEffect(() => {
@@ -135,29 +136,32 @@ export function useAgoraAudioCall(
     
     // Get the current time to implement throttling
     const now = Date.now();
-    if (now - lastUpdateTime < 300) {
+    if (now - lastUpdateTimeRef.current < 500) {
       console.log("Throttling rapid mute toggle");
       return;
     }
-    setLastUpdateTime(now);
+    lastUpdateTimeRef.current = now;
     
-    // IMPORTANT: Use setMuted instead of setEnabled to avoid the TRACK_STATE_UNREACHABLE error
+    // Get current muted state
     const currentMuted = agoraState.localAudioTrack.muted;
     console.log("Toggling mute state from", currentMuted, "to", !currentMuted);
     
     // Set the track muted state
     agoraState.localAudioTrack.setMuted(!currentMuted);
     
-    // Update the UI state
+    // Update the UI state immediately
     setIsMuted(!currentMuted);
     
     // Force update AgoraState to trigger the useEffect in useAudioStatusSync
-    // We use a custom audioMutedState property to trigger the useEffect without modifying the track
     setAgoraState(prev => ({
       ...prev,
       audioMutedState: !currentMuted, // Add this as a trigger property
     }));
     
+    // Store this pending state to avoid duplicate notifications
+    pendingMuteStateRef.current = !currentMuted;
+    
+    // Show toast with new state
     toast({
       title: !currentMuted ? "Microphone muted" : "Microphone unmuted",
       description: !currentMuted 

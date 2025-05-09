@@ -22,6 +22,9 @@ export function useAudioStatusSync(
   // Track last update time for stronger throttling
   const lastUpdateTimeRef = useRef<number>(0);
   
+  // Track the last database update we sent for audio mute state
+  const lastSentMuteStateRef = useRef<boolean | null>(null);
+  
   // Track audio status changes - only monitor the agoraState.audioMutedState change
   useEffect(() => {
     if (!currentUser || !channelName || !agoraState.localAudioTrack) return;
@@ -29,15 +32,22 @@ export function useAudioStatusSync(
     // Get current muted state directly from the track
     const audioMuted = agoraState.localAudioTrack.muted;
     
-    // Skip redundant updates or if an update is already in progress
-    if (prevMutedStateRef.current === audioMuted || updateInProgressRef.current) {
+    // Skip redundant updates (if the state hasn't changed from what we last sent to DB)
+    if (lastSentMuteStateRef.current === audioMuted) {
+      console.log(`Skipping duplicate audio sync - muted state ${audioMuted} already in database`);
       return;
     }
     
-    // Enhanced aggressive throttling - only allow updates every 1.2 seconds
+    // Skip if an update is already in progress
+    if (updateInProgressRef.current) {
+      console.log(`Skipping audio sync - update already in progress`);
+      return;
+    }
+    
+    // Enhanced aggressive throttling - only allow updates every 3 seconds
     const now = Date.now();
     const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
-    if (timeSinceLastUpdate < 1200) {
+    if (timeSinceLastUpdate < 3000) {
       console.log(`Throttling audio sync - last update was ${timeSinceLastUpdate}ms ago`);
       return;
     }
@@ -51,6 +61,9 @@ export function useAudioStatusSync(
       try {
         // Mark update as in progress
         updateInProgressRef.current = true;
+        
+        // Record that we're sending this state to the database
+        lastSentMuteStateRef.current = audioMuted;
         
         console.log(`Updating audio status for ${currentUser.name} to ${audioMuted ? 'muted' : 'unmuted'}`);
         
@@ -70,6 +83,9 @@ export function useAudioStatusSync(
         if (error) {
           console.error("Failed to update audio status in Supabase:", error);
           
+          // Reset lastSentMuteStateRef since the update failed
+          lastSentMuteStateRef.current = null;
+          
           toast({
             title: "Sync Error",
             description: `Audio status update failed: ${error.message}`,
@@ -78,11 +94,13 @@ export function useAudioStatusSync(
         }
       } catch (error) {
         console.error("Exception in updateAudioStatus:", error);
+        // Reset lastSentMuteStateRef since the update failed
+        lastSentMuteStateRef.current = null;
       } finally {
         // Add a delay before allowing more updates for stability
         setTimeout(() => {
           updateInProgressRef.current = false;
-        }, 1000);
+        }, 2000);
       }
     };
     

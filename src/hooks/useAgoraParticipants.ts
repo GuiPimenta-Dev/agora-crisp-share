@@ -24,6 +24,9 @@ export function useAgoraParticipants(
   // Keep track of users we've already seen to prevent notifications on UPDATE events
   const knownUsersRef = useRef<Set<string>>(new Set<string>());
   
+  // Add a new ref to track update timestamps with specific fields
+  const lastFieldUpdateRef = useRef<Record<string, Record<string, number>>>({});
+  
   // Fetch participants when channel name changes
   useEffect(() => {
     if (!channelName || !setParticipants) return;
@@ -78,14 +81,37 @@ export function useAgoraParticipants(
       }, (payload) => {
         console.log('Realtime participant update:', payload);
         
-        // Function to check if this might be a duplicate or redundant update
+        // Function to check if a specific field has recently been updated
+        const hasRecentFieldUpdate = (userId: string, field: string): boolean => {
+          const now = Date.now();
+          const userUpdates = lastFieldUpdateRef.current[userId] || {};
+          const lastUpdate = userUpdates[field] || 0;
+          const timeDiff = now - lastUpdate;
+          
+          // If we got another update for the same field in less than 5000ms,
+          // this might be a duplicate or race condition
+          if (timeDiff < 5000) {
+            console.log(`Recent update for user ${userId} field ${field} (${timeDiff}ms ago)`);
+            return true;
+          }
+          
+          // Record this update time for the specific field
+          if (!lastFieldUpdateRef.current[userId]) {
+            lastFieldUpdateRef.current[userId] = {};
+          }
+          lastFieldUpdateRef.current[userId][field] = now;
+          return false;
+        };
+        
+        // Function to check if this might be a duplicate update
         const isDuplicateUpdate = (userId: string): boolean => {
           const now = Date.now();
           const lastUpdate = statusUpdateTimestampRef.current[userId] || 0;
           const timeDiff = now - lastUpdate;
           
-          // If we got another update for the same user in less than 2000ms, consider it a potential duplicate
-          if (timeDiff < 2000) {
+          // If we got another update for the same user in less than 3000ms, 
+          // consider it a potential duplicate
+          if (timeDiff < 3000) {
             console.log(`Potential duplicate update for user ${userId} (${timeDiff}ms since last update)`);
             return true;
           }
@@ -101,8 +127,8 @@ export function useAgoraParticipants(
           const lastNotified = recentlyNotifiedRef.current[userId] || 0;
           const timeDiff = now - lastNotified;
           
-          // Only show notifications once every 5 seconds for the same user (any type)
-          if (timeDiff < 5000) {
+          // Only show notifications once every 10 seconds for the same user
+          if (timeDiff < 10000) {
             console.log(`Skipping ${type} notification for ${userId} (${timeDiff}ms since last notification)`);
             return false;
           }
@@ -173,34 +199,49 @@ export function useAgoraParticipants(
           const oldParticipant = payload.old as any;
           const userId = updatedParticipant.user_id;
           
-          // Only update if audio or screen sharing status changed
-          // This is an audio/screen status update, not a participant joining
-          const hasAudioChanged = 
-            updatedParticipant.audio_enabled !== oldParticipant.audio_enabled ||
-            updatedParticipant.audio_muted !== oldParticipant.audio_muted;
-            
-          const hasScreenSharingChanged = 
-            updatedParticipant.screen_sharing !== oldParticipant.screen_sharing;
-          
-          // If both audio and screen sharing are unchanged, this might be another type of update
-          // that we don't necessarily want to process here
-          if (!hasAudioChanged && !hasScreenSharingChanged) {
-            console.log("Update doesn't affect audio or screen sharing, skipping");
+          // Skip if this is a duplicate update or comes too soon after another update
+          if (isDuplicateUpdate(userId)) {
+            console.log(`Skipping duplicate update for user ${userId}`);
             return;
           }
           
-          setParticipants(prev => ({
-            ...prev,
-            [userId]: {
-              ...prev[userId],
-              name: updatedParticipant.name,
-              avatar: updatedParticipant.avatar,
-              role: updatedParticipant.role,
-              audioEnabled: updatedParticipant.audio_enabled,
-              audioMuted: updatedParticipant.audio_muted,
-              screenSharing: updatedParticipant.screen_sharing || false
-            }
-          }));
+          // Only update if audio or screen sharing status changed
+          const hasAudioEnabledChanged = 
+            updatedParticipant.audio_enabled !== oldParticipant.audio_enabled && 
+            !hasRecentFieldUpdate(userId, 'audio_enabled');
+            
+          const hasAudioMutedChanged = 
+            updatedParticipant.audio_muted !== oldParticipant.audio_muted && 
+            !hasRecentFieldUpdate(userId, 'audio_muted');
+            
+          const hasScreenSharingChanged = 
+            updatedParticipant.screen_sharing !== oldParticipant.screen_sharing && 
+            !hasRecentFieldUpdate(userId, 'screen_sharing');
+          
+          // If none of the tracked fields changed significantly, skip this update
+          if (!hasAudioEnabledChanged && !hasAudioMutedChanged && !hasScreenSharingChanged) {
+            console.log(`No significant audio or screen sharing changes for ${userId}, skipping update`);
+            return;
+          }
+          
+          console.log(`Processing valid status update for ${userId}`);
+          
+          setParticipants(prev => {
+            const existing = prev[userId] || {};
+            
+            return {
+              ...prev,
+              [userId]: {
+                ...existing,
+                name: updatedParticipant.name || existing.name,
+                avatar: updatedParticipant.avatar || existing.avatar,
+                role: updatedParticipant.role || existing.role,
+                audioEnabled: updatedParticipant.audio_enabled,
+                audioMuted: updatedParticipant.audio_muted,
+                screenSharing: updatedParticipant.screen_sharing || false
+              }
+            };
+          });
         }
         else if (payload.eventType === 'DELETE') {
           const deletedParticipant = payload.old as any;
