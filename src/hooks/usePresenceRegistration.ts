@@ -53,7 +53,8 @@ export function usePresenceRegistration(
           toast({
             title: "Warning",
             description: "Not logged in to Supabase - participant sync disabled",
-            variant: "warning"
+            // Change "warning" to "destructive" since it's a supported variant
+            variant: "destructive"
           });
         }
         
