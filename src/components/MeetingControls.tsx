@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MonitorX, Phone, Share2, Video, VideoOff } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
@@ -28,6 +28,7 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
   const canUseAudio = currentUser?.role === "coach" || currentUser?.role === "student";
   const canShareScreen = currentUser?.role === "coach" || currentUser?.role === "student";
 
+  // Guaranteed atomic update of participant state in Supabase
   const updateState = async (field: "audio_muted" | "screen_sharing", value: boolean) => {
     const userId = currentUser?.id;
     const meetingId = agoraState?.channelName;
@@ -37,7 +38,7 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
 
     if (!userId || !meetingId) {
       console.warn("Missing userId or meetingId for update");
-      return;
+      return false;
     }
 
     try {
@@ -64,33 +65,40 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
           description: `Could not update ${field.replace('_', ' ')} status: ${error.message}`,
           variant: "destructive"
         });
+        return false;
       } else {
         console.log(`Successfully updated ${field}:`, data);
         console.log("Update status:", status, statusText);
+        return true;
       }
     } catch (err) {
       console.error(`Exception updating ${field}:`, err);
+      return false;
     }
   };
 
   const handleToggleMute = async () => {
     console.log("Toggle mute clicked, current state:", isMuted);
     
-    // First toggle the mute state in the UI and Agora
-    toggleMute();
+    // First update the database with the new state
+    const success = await updateState("audio_muted", !isMuted);
     
-    // Then directly update the database with the new state (which is opposite of current isMuted)
-    // Note: We pass !isMuted because the state hasn't updated in the UI yet
-    await updateState("audio_muted", !isMuted);
+    // Only if the database update is successful, toggle the mute state locally
+    if (success) {
+      // Then toggle the mute state in the UI and Agora
+      toggleMute();
+    }
   };
 
   const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
-      stopScreenShare();
       await updateState("screen_sharing", false);
+      stopScreenShare();
     } else {
-      startScreenShare();
-      await updateState("screen_sharing", true);
+      const success = await startScreenShare();
+      if (success) {
+        await updateState("screen_sharing", true);
+      }
     }
   };
 

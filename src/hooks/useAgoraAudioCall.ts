@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
   createMicrophoneAudioTrack, 
@@ -16,6 +15,16 @@ export function useAgoraAudioCall(
   setIsMuted: React.Dispatch<React.SetStateAction<boolean>>,
   setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
 ) {
+  // Keep track of last update time to throttle rapid state changes
+  const [lastUpdateTime, setLastUpdateTime] = useState<number>(0);
+
+  // Sync UI mute state with track mute state when track changes
+  useEffect(() => {
+    if (agoraState.localAudioTrack) {
+      setIsMuted(agoraState.localAudioTrack.muted);
+    }
+  }, [agoraState.localAudioTrack, setIsMuted]);
+
   const joinAudioCall = async (channelName: string, audioEnabled: boolean = false): Promise<boolean> => {
     if (!agoraState.client) {
       console.error("Agora client not initialized in joinAudioCall");
@@ -124,6 +133,14 @@ export function useAgoraAudioCall(
   const toggleMute = () => {
     if (!agoraState.localAudioTrack) return;
     
+    // Get the current time to implement throttling
+    const now = Date.now();
+    if (now - lastUpdateTime < 300) {
+      console.log("Throttling rapid mute toggle");
+      return;
+    }
+    setLastUpdateTime(now);
+    
     // IMPORTANT: Use setMuted instead of setEnabled to avoid the TRACK_STATE_UNREACHABLE error
     const currentMuted = agoraState.localAudioTrack.muted;
     console.log("Toggling mute state from", currentMuted, "to", !currentMuted);
@@ -140,9 +157,6 @@ export function useAgoraAudioCall(
       ...prev,
       audioMutedState: !currentMuted, // Add this as a trigger property
     }));
-    
-    // We don't update Supabase directly here - that happens in useAudioStatusSync
-    // and in MeetingControls.handleToggleMute
     
     toast({
       title: !currentMuted ? "Microphone muted" : "Microphone unmuted",

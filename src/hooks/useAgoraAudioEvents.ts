@@ -1,5 +1,5 @@
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { AgoraState } from "@/types/agora";
 import { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
@@ -16,12 +16,15 @@ export function useAgoraAudioEvents(
   channelName?: string
 ) {
   const client = agoraState.client;
+  
+  // Reference to track audio states for each user
+  const audioStatesRef = useRef<Record<string, boolean>>({});
 
   useEffect(() => {
     if (!client) return;
     
-    // Flag para controlar notificações de eventos de áudio
-    // para evitar mensagens duplicadas ou indesejadas
+    // Flag to control notification of audio events
+    // to avoid duplicate or unwanted messages
     const notifiedUsers = new Set<string>();
 
     const handleUserAudioPublished = async (user: IAgoraRTCRemoteUser, mediaType: string) => {
@@ -33,7 +36,7 @@ export function useAgoraAudioEvents(
       if (remoteAudioTrack) {
         remoteAudioTrack.play();
         
-        // Apenas notificar sobre novo usuário com áudio se não foi notificado anteriormente
+        // Only notify about new user with audio if not previously notified
         const userId = user.uid.toString();
         
         if (!notifiedUsers.has(userId)) {
@@ -46,9 +49,12 @@ export function useAgoraAudioEvents(
             description: `${participantName} joined the call`,
           });
           
-          // Marcar como notificado para evitar mensagens duplicadas
+          // Mark as notified to avoid duplicate messages
           notifiedUsers.add(userId);
         }
+        
+        // Store the current audio state
+        audioStatesRef.current[userId] = true;
         
         // Update audio status in Supabase if the user already exists in participants
         if (channelName) {
@@ -83,11 +89,15 @@ export function useAgoraAudioEvents(
         user.audioTrack.stop();
       }
       
-      // Não mostramos notificação quando o usuário desativa o áudio
-      // Isso evita mensagens como "fulano saiu" quando na verdade apenas mutou
+      // We don't show a notification when a user disables audio
+      // This prevents messages like "user left" when they just muted themselves
+      
+      const userId = user.uid.toString();
+      
+      // Update the stored audio state
+      audioStatesRef.current[userId] = false;
       
       // Update audio status in Supabase
-      const userId = user.uid.toString();
       if (channelName) {
         console.log(`Updating audio status for user ${userId} to muted`);
         supabase.from("meeting_participants")

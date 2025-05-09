@@ -1,5 +1,5 @@
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MeetingUser } from "@/types/meeting";
 import { AgoraState } from "@/types/agora";
@@ -13,16 +13,28 @@ export function useAudioStatusSync(
   currentUser: MeetingUser | null,
   channelName?: string
 ) {
+  // Ref to track the previous muted state to avoid unnecessary updates
+  const prevMutedStateRef = useRef<boolean | null>(null);
+
   // Track audio status changes
   useEffect(() => {
     if (!currentUser || !channelName || !agoraState.localAudioTrack) return;
 
+    // Get current muted state directly from the track
+    const audioMuted = agoraState.localAudioTrack.muted;
+    
+    // Don't update if it's the same as the previous state
+    if (prevMutedStateRef.current === audioMuted) {
+      console.log("Audio state unchanged, skipping update");
+      return;
+    }
+    
+    // Update the previous state ref
+    prevMutedStateRef.current = audioMuted;
+
     // Update audio status when it changes
     const updateAudioStatus = async () => {
-      try {
-        // Use the muted state directly from the track
-        const audioMuted = agoraState.localAudioTrack.muted;
-        
+      try {        
         console.log(`Updating audio status for ${currentUser.name} to ${audioMuted ? 'muted' : 'unmuted'}`);
         
         // Create the update payload - explicitly setting both fields
@@ -63,5 +75,5 @@ export function useAudioStatusSync(
     updateAudioStatus();
     
   // Add all relevant dependencies to trigger the effect
-  }, [agoraState.localAudioTrack?.muted, agoraState.audioMutedState, currentUser, channelName]);
+  }, [agoraState.localAudioTrack?.muted, currentUser, channelName, agoraState.audioMutedState]);
 }
