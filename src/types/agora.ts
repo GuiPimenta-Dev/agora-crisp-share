@@ -34,7 +34,7 @@ export interface AgoraContextType {
   participants: Record<string, MeetingUser>;
   setParticipants: React.Dispatch<React.SetStateAction<Record<string, MeetingUser>>>;
   joinWithUser: (channelName: string, user: MeetingUser) => Promise<boolean>;
-  refreshParticipants: () => void;
+  refreshParticipants: () => Promise<void>;
 }
 
 export interface RecordingSettings {
@@ -44,3 +44,4 @@ export interface RecordingSettings {
   resourceId?: string;
   recordingId?: string;
 }
+

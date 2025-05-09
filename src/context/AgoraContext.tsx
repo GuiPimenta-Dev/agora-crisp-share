@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useRef, useEffect } from "react";
 import AgoraRTC, { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { createClient } from "@/lib/agoraUtils";
@@ -314,6 +313,27 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  // Fix the refreshParticipants function to return a Promise<void>
+  const refreshParticipants = async (): Promise<void> => {
+    setParticipantsLastUpdated(Date.now());
+    if (agoraState.channelName) {
+      try {
+        const result = await callGetParticipants(agoraState.channelName);
+        if (result.success && result.participants) {
+          setParticipants(result.participants);
+          
+          // Também atualizar os participantes no estado do Agora
+          setAgoraState(prev => ({
+            ...prev,
+            participants: result.participants
+          }));
+        }
+      } catch (error) {
+        console.error("Error refreshing participants:", error);
+      }
+    }
+  };
+
   // Create context value
   const contextValue: AgoraContextType = {
     agoraState,
@@ -334,7 +354,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     participants,
     setParticipants,
     joinWithUser,
-    refreshParticipants: () => setParticipantsLastUpdated(Date.now())
+    refreshParticipants
   };
 
   return <AgoraContext.Provider value={contextValue}>{children}</AgoraContext.Provider>;
