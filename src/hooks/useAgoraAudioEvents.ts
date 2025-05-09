@@ -40,9 +40,12 @@ export function useAgoraAudioEvents(
         
         // Update audio status in Supabase if the user already exists in participants
         if (channelName) {
-          console.log(`Updating audio status for user ${userId} to enabled`);
+          console.log(`Updating audio status for user ${userId} to unmuted`);
           supabase.from("meeting_participants")
-            .update({ audio_enabled: true })
+            .update({ 
+              audio_enabled: true,
+              audio_muted: false 
+            })
             .eq("meeting_id", channelName)
             .eq("user_id", userId)
             .then(({ error }) => {
@@ -71,9 +74,12 @@ export function useAgoraAudioEvents(
       // Update audio status in Supabase
       const userId = user.uid.toString();
       if (channelName) {
-        console.log(`Updating audio status for user ${userId} to disabled`);
+        console.log(`Updating audio status for user ${userId} to muted`);
         supabase.from("meeting_participants")
-          .update({ audio_enabled: false })
+          .update({ 
+            audio_enabled: false,
+            audio_muted: true 
+          })
           .eq("meeting_id", channelName)
           .eq("user_id", userId)
           .then(({ error }) => {

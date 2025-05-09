@@ -55,6 +55,7 @@ export function useParticipantsRealtime(
               avatar: profileData?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`,
               role: newParticipant.role as any,
               audioEnabled: newParticipant.audio_enabled,
+              audioMuted: newParticipant.audio_muted,
               screenSharing: newParticipant.screen_sharing || false,
               joinedAt: newParticipant.created_at
             }
@@ -75,6 +76,7 @@ export function useParticipantsRealtime(
             
             console.log(`Updating participant ${updatedParticipant.user_id}:`, {
               audioEnabled: updatedParticipant.audio_enabled,
+              audioMuted: updatedParticipant.audio_muted,
               screenSharing: updatedParticipant.screen_sharing
             });
             
@@ -83,6 +85,7 @@ export function useParticipantsRealtime(
               [updatedParticipant.user_id]: {
                 ...existing,
                 audioEnabled: updatedParticipant.audio_enabled,
+                audioMuted: updatedParticipant.audio_muted,
                 screenSharing: updatedParticipant.screen_sharing || false
               }
             };

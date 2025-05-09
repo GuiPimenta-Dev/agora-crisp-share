@@ -109,6 +109,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
         <div className="space-y-1">
           {sortedParticipants.map((participant) => {
             const isCurrentUser = currentUser && participant.id === currentUser.id;
+            const isAudioMuted = participant.audioMuted === undefined ? !participant.audioEnabled : participant.audioMuted;
             
             return (
               <div 
@@ -153,7 +154,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
                   {participant.screenSharing && (
                     <MonitorSmartphone className="h-4 w-4 text-blue-500" />
                   )}
-                  {participant.audioEnabled ? (
+                  {!isAudioMuted ? (
                     <Mic className="h-4 w-4 text-primary" />
                   ) : (
                     <MicOff className="h-4 w-4 text-muted-foreground" />
@@ -166,6 +167,6 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
       </ScrollArea>
     </Card>
   );
-};
+}
 
 export default ParticipantsList;

@@ -7,6 +7,7 @@ export interface MeetingUser {
   avatar?: string;
   role: Role;
   audioEnabled?: boolean;
+  audioMuted?: boolean;
   isCurrent?: boolean;
   screenSharing?: boolean;
 }

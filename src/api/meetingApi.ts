@@ -75,13 +75,16 @@ export const apiJoinMeeting = async (channelId: string, userId: string): Promise
     // Determine role and audio permissions
     let role: Role = "listener";
     let audioEnabled = false;
+    let audioMuted = true;
     
     if (userId === meeting.coach_id) {
       role = "coach";
       audioEnabled = true;
+      audioMuted = false;
     } else if (userId === meeting.student_id) {
       role = "student";
       audioEnabled = true;
+      audioMuted = false;
     }
     
     // Create user object using profile data from Supabase
@@ -90,7 +93,8 @@ export const apiJoinMeeting = async (channelId: string, userId: string): Promise
       name: profile.name,
       avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=random`,
       role,
-      audioEnabled
+      audioEnabled,
+      audioMuted
     };
     
     // Add participant to the meeting in Supabase
@@ -103,6 +107,7 @@ export const apiJoinMeeting = async (channelId: string, userId: string): Promise
         avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=random`,
         role,
         audio_enabled: audioEnabled,
+        audio_muted: audioMuted,
         screen_sharing: false
       }, { onConflict: 'meeting_id,user_id' });
     
@@ -166,6 +171,7 @@ export const apiGetParticipants = async (meetingId: string) => {
         avatar: participant.avatar,
         role: participant.role as Role,
         audioEnabled: participant.audio_enabled,
+        audioMuted: participant.audio_muted,
         screenSharing: participant.screen_sharing
       };
     });

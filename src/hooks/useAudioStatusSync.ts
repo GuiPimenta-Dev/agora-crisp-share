@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MeetingUser } from "@/types/meeting";
@@ -20,14 +19,18 @@ export function useAudioStatusSync(
     // Update audio status when it changes
     const updateAudioStatus = async () => {
       try {
-        // Use the muted state directly to determine if audio is enabled
-        const audioEnabled = agoraState.localAudioTrack ? !agoraState.localAudioTrack.muted : false;
+        // Use the muted state directly from the track
+        const audioMuted = agoraState.localAudioTrack ? agoraState.localAudioTrack.muted : true;
         
-        console.log(`Updating audio status for ${currentUser.name} to ${audioEnabled ? 'enabled' : 'disabled'}`);
+        console.log(`Updating audio status for ${currentUser.name} to ${audioMuted ? 'muted' : 'unmuted'}`);
         
         const { error } = await supabase
           .from("meeting_participants")
-          .update({ audio_enabled: audioEnabled })
+          .update({ 
+            audio_muted: audioMuted,
+            // Keep the enabled status for compatibility
+            audio_enabled: !audioMuted 
+          })
           .eq("meeting_id", channelName)
           .eq("user_id", currentUser.id);
           
