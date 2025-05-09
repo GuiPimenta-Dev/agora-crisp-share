@@ -7,6 +7,18 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export const apiCreateMeeting = async (data: CreateMeetingRequest) => {
   try {
+    // Check if meeting already exists
+    const { data: existingMeeting } = await supabase
+      .from("meetings")
+      .select()
+      .eq("id", data.id)
+      .single();
+      
+    if (existingMeeting) {
+      // Meeting already exists, just return it
+      return { success: true, meeting: existingMeeting };
+    }
+
     // Insert meeting into Supabase
     const { data: meeting, error } = await supabase
       .from("meetings")
@@ -79,7 +91,7 @@ export const apiJoinMeeting = async (channelId: string, data: JoinMeetingRequest
         avatar: data.avatar,
         role,
         audio_enabled: audioEnabled
-      });
+      }, { onConflict: 'meeting_id,user_id' });
     
     if (participantError) {
       console.error("Failed to add participant:", participantError);

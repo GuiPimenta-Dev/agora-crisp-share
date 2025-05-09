@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
@@ -17,20 +18,30 @@ export function useAgoraAudioCall(
   const joinAudioCall = async (channelName: string, audioEnabled: boolean = true): Promise<boolean> => {
     if (!agoraState.client) {
       toast({
-        title: "Erro",
-        description: "Cliente Agora não inicializado",
+        title: "Error",
+        description: "Agora client not initialized",
         variant: "destructive",
       });
       return false;
     }
     
     try {
+      // Check if we're already in a channel
+      if (agoraState.joinState) {
+        console.log("Already joined a channel, reusing existing connection");
+        return true;
+      }
+
       const localAudioTrack = await createMicrophoneAudioTrack();
       
       // Set initial audio state based on permissions
       if (!audioEnabled) {
         localAudioTrack.setEnabled(false);
         setIsMuted(true);
+      } else {
+        // Ensure track is enabled before publishing
+        localAudioTrack.setEnabled(true);
+        setIsMuted(false);
       }
       
       const joined = await joinChannel(
@@ -49,8 +60,8 @@ export function useAgoraAudioCall(
         }));
         
         toast({
-          title: "Conectado",
-          description: `Você entrou no canal ${channelName}`,
+          title: "Connected",
+          description: `You've joined channel ${channelName}`,
         });
       }
       
@@ -58,8 +69,8 @@ export function useAgoraAudioCall(
     } catch (error) {
       console.error("Error joining audio call:", error);
       toast({
-        title: "Falha ao conectar",
-        description: "Não foi possível entrar na chamada. Por favor, verifique as permissões.",
+        title: "Connection failed",
+        description: "Unable to join call. Please check your permissions.",
         variant: "destructive",
       });
       return false;
