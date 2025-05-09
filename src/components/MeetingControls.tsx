@@ -1,32 +1,58 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MonitorX, Phone, Share2, Video, VideoOff } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { supabase } from "@/lib/supabaseClient"; // <== Adicione isso se ainda não tiver
 
 interface MeetingControlsProps {
   className?: string;
 }
 
 const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
-  const { 
-    isMuted, 
-    toggleMute, 
-    isScreenSharing, 
-    startScreenShare, 
-    stopScreenShare, 
+  const {
+    isMuted,
+    toggleMute,
+    isScreenSharing,
+    startScreenShare,
+    stopScreenShare,
     leaveAudioCall,
     isScreenRecording,
     toggleScreenRecording,
-    currentUser
+    currentUser,
+    channelId // <== canal da reunião, necessário para o .eq no update
   } = useAgora();
 
-  // Check if user can use audio
   const canUseAudio = currentUser?.role === "coach" || currentUser?.role === "student";
-
-  // Check if user can share screen (coach and student can share screen now)
   const canShareScreen = currentUser?.role === "coach" || currentUser?.role === "student";
+
+  const updateState = async (field: "audio_muted" | "screen_sharing", value: boolean) => {
+    if (!currentUser?.id || !channelId) return;
+    const { error } = await supabase
+      .from("meeting_participants")
+      .update({ [field]: value })
+      .eq("user_id", currentUser.id)
+      .eq("meeting_id", channelId);
+
+    if (error) {
+      console.error(`Failed to update ${field}:`, error.message);
+    }
+  };
+
+  const handleToggleMute = async () => {
+    toggleMute();
+    await updateState("audio_muted", !isMuted);
+  };
+
+  const handleToggleScreenShare = async () => {
+    if (isScreenSharing) {
+      stopScreenShare();
+      await updateState("screen_sharing", false);
+    } else {
+      startScreenShare();
+      await updateState("screen_sharing", true);
+    }
+  };
 
   return (
     <div className={`flex items-center justify-center gap-4 p-4 ${className}`}>
@@ -36,7 +62,7 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
             <Button
               variant={isMuted ? "outline" : "default"}
               size="icon"
-              onClick={toggleMute}
+              onClick={handleToggleMute}
               className="h-12 w-12 rounded-full"
             >
               {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
@@ -70,7 +96,7 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
             <Button
               variant={isScreenSharing ? "destructive" : "default"}
               size="icon"
-              onClick={isScreenSharing ? stopScreenShare : startScreenShare}
+              onClick={handleToggleScreenShare}
               className="h-12 w-12 rounded-full"
             >
               {isScreenSharing ? <MonitorX className="h-5 w-5" /> : <Share2 className="h-5 w-5" />}
@@ -81,7 +107,7 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
           </TooltipContent>
         </Tooltip>
       )}
-      
+
       {currentUser?.role === "coach" && (
         <Tooltip>
           <TooltipTrigger asChild>
