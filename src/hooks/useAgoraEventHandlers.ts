@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import { AgoraState } from "@/types/agora";
-import { IAgoraRTCClient } from "agora-rtc-sdk-ng";
+import { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { MeetingUser } from "@/types/meeting";
 
 export function useAgoraEventHandlers(
@@ -28,23 +28,31 @@ export function useAgoraEventHandlers(
         // Small delay to ensure connection is ready
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Send a custom message to all users in the channel
-        // This contains our user information for others to add to their participant list
-        if (client.channelName) {
-          await client.sendStreamMessage(Buffer.from(JSON.stringify({
-            type: "user_joined",
-            user: currentUser
-          })));
-          
-          console.log("Broadcast presence message sent");
-        }
+        // Instead of using stream messages, we'll use the "user-joined" event
+        // and update our local state based on that event.
+        // We don't need to explicitly broadcast since Agora handles the presence.
+        
+        // Add ourselves to the participants list
+        setParticipants(prev => {
+          // Only add if not already in the list
+          if (currentUser && !prev[currentUser.id]) {
+            console.log(`Adding current user ${currentUser.name} to participants`);
+            return {
+              ...prev,
+              [currentUser.id]: { ...currentUser, isCurrent: true }
+            };
+          }
+          return prev;
+        });
+        
+        console.log("Current user added to participants list");
       } catch (error) {
-        console.error("Failed to broadcast presence:", error);
+        console.error("Failed to initialize participant sync:", error);
       }
     };
 
     broadcastPresence();
-  }, [client, currentUser, agoraState.joinState]);
+  }, [client, currentUser, agoraState.joinState, setParticipants]);
 
   useEffect(() => {
     if (!client) return;
@@ -67,6 +75,25 @@ export function useAgoraEventHandlers(
             title: "Usuário conectou o áudio",
             description: `${participantName} entrou na chamada`,
           });
+          
+          // Update the participants list with this user if not already there
+          // Note: This assumes the userId in our participants list matches uid from Agora
+          if (!participants[userId] && currentUser) {
+            console.log(`Adding new remote user ${userId} to participants via audio publish`);
+            
+            // Create a generic user entry
+            setParticipants(prev => ({
+              ...prev,
+              [userId]: {
+                id: userId,
+                name: `Usuário ${userId}`,
+                avatar: `https://ui-avatars.com/api/?name=User&background=random`,
+                role: "listener", // Default role
+                audioEnabled: true,
+                isCurrent: false
+              }
+            }));
+          }
         }
       }
       
@@ -175,32 +202,14 @@ export function useAgoraEventHandlers(
       }
     });
 
-    // Add custom message handler for participant synchronization
-    client.on("stream-message", (user, data) => {
-      try {
-        const message = JSON.parse(Buffer.from(data).toString());
-        
-        if (message.type === "user_joined" && message.user) {
-          const newUser = message.user as MeetingUser;
-          
-          // Add the user to our participants list if not already there
-          setParticipants(prev => {
-            // Don't add if already in the list or if it's us
-            if (prev[newUser.id] || (currentUser && newUser.id === currentUser.id)) {
-              return prev;
-            }
-            
-            console.log(`Adding user ${newUser.name} to participants via message`);
-            return {
-              ...prev,
-              [newUser.id]: { ...newUser, isCurrent: false }
-            };
-          });
-        }
-      } catch (error) {
-        console.error("Error processing stream message:", error);
-      }
-    });
+    // Since we can't use direct messaging through the Agora SDK's RTC client,
+    // we'll use custom events when new users join or leave to update our participant list.
+    // The main ways are:
+    // 1. When users publish audio (handled in user-published)
+    // 2. When users leave (handled in user-left)
+    
+    // For incoming API-created participants, they will be added directly to the participants list
+    // when they join the meeting through the API, no need for additional message handling.
 
     // Clean up
     return () => {
