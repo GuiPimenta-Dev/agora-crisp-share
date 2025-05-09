@@ -5,7 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import "./App.css";
 import { AgoraProvider } from "./context/AgoraContext";
 import { Toaster } from "./components/ui/toaster";
-import { ThemeProvider } from "./components/ui/theme-provider";
+import { ThemeProvider } from "@/components/ui/theme-provider";
 import MeetingPage from "./pages/MeetingPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
