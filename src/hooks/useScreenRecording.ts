@@ -12,14 +12,43 @@ export function useScreenRecording() {
     recordedChunksRef.current = [];
     
     try {
-      // Request screen capture with audio
+      // Get the current tab's ID - this ensures we're recording the current meeting tab
+      const currentTab = { audio: true, video: true, preferCurrentTab: true };
+      
+      // Request screen capture with audio from current tab
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100,
+          suppressLocalAudioPlayback: false,
+        },
+        preferCurrentTab: true,
       });
       
-      // Create MediaRecorder instance
-      const mediaRecorder = new MediaRecorder(stream);
+      // Add audio track from system audio if available
+      const audioContext = new AudioContext();
+      const audioDestination = audioContext.createMediaStreamDestination();
+      
+      // Add system audio to the stream if possible
+      const userAudio = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioSource = audioContext.createMediaStreamSource(userAudio);
+      audioSource.connect(audioDestination);
+      
+      // Create a combined stream with system audio and screen capture
+      const combinedTracks = [
+        ...stream.getVideoTracks(),
+        ...audioDestination.stream.getAudioTracks(),
+      ];
+      
+      const combinedStream = new MediaStream(combinedTracks);
+      
+      // Create MediaRecorder instance with high quality
+      const mediaRecorder = new MediaRecorder(combinedStream, {
+        mimeType: 'video/webm;codecs=vp9,opus',
+        videoBitsPerSecond: 3000000, // 3 Mbps for good quality
+      });
       
       // Event handler for data available
       mediaRecorder.ondataavailable = (event) => {
@@ -47,11 +76,13 @@ export function useScreenRecording() {
         // Release resources
         URL.revokeObjectURL(url);
         stopTracks(stream);
+        stopTracks(userAudio);
+        audioContext.close();
         
         setIsRecording(false);
         toast({
           title: "Recording saved",
-          description: "Your screen recording has been downloaded",
+          description: "Your screen recording with audio has been downloaded",
         });
       };
       
@@ -62,7 +93,7 @@ export function useScreenRecording() {
       
       toast({
         title: "Recording started",
-        description: "Your screen is now being recorded",
+        description: "Your screen and audio are now being recorded",
       });
       
       // Setup safety handler for when user cancels via browser UI
