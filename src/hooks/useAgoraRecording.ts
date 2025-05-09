@@ -13,8 +13,8 @@ export function useAgoraRecording(
 ) {
   const [recordingSettings, setRecordingSettings] = useState<RecordingSettings | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const autoRecordingAttempted = useRef<boolean>(false);
   const recordingStartTime = useRef<number | null>(null);
+  const reminderTimerRef = useRef<number | null>(null);
 
   // Criar elemento de áudio para tocar som de início de gravação
   useEffect(() => {
@@ -28,30 +28,46 @@ export function useAgoraRecording(
     };
   }, []);
 
-  // Monitorar participantes para iniciar gravação quando coach e student estiverem presentes
+  // Setup a reminder for coaches to start recording
   useEffect(() => {
-    // Verifica se já tentou iniciar a gravação automática
-    if (autoRecordingAttempted.current) return;
-    
-    if (agoraState.participants) {
-      const participants = Object.values(agoraState.participants);
-      const hasCoach = participants.some(p => p.role === "coach");
-      const hasStudent = participants.some(p => p.role === "student");
+    // Clear any existing reminder timer when unmounting or when recording status changes
+    if (reminderTimerRef.current) {
+      clearInterval(reminderTimerRef.current);
+      reminderTimerRef.current = null;
+    }
+
+    if (!agoraState.isRecording && agoraState.participants) {
+      // Find current user
+      const currentUserId = Object.keys(agoraState.participants).find(id => {
+        // Current user is typically the first to be added to participants
+        // Or we could add a "isCurrentUser" flag in the participants data
+        return agoraState.participants?.[id]?.isCurrent;
+      });
+
+      const currentUser = currentUserId ? agoraState.participants[currentUserId] : null;
       
-      // Iniciar gravação apenas se tiver coach e aluno, e não estiver já gravando
-      if (hasCoach && hasStudent && !agoraState.isRecording) {
-        console.log("Coach e aluno presentes, iniciando gravação automática");
-        autoRecordingAttempted.current = true;
-        startRecording().catch(err => {
-          console.error("Erro ao iniciar gravação automática:", err);
-          // Reset para tentar novamente
-          setTimeout(() => {
-            autoRecordingAttempted.current = false;
-          }, 10000);
-        });
+      // Set up reminder only for coaches
+      if (currentUser?.role === "coach") {
+        console.log("Setting up recording reminder for coach");
+        
+        // Setup a periodic reminder (every 5 minutes = 300000 ms)
+        reminderTimerRef.current = window.setInterval(() => {
+          toast({
+            title: "Lembrete de Gravação",
+            description: "Lembre-se de gravar esta sessão para referência futura.",
+            variant: "default",
+          });
+        }, 300000); // 5 minutes
       }
     }
-  }, [agoraState.participants, agoraState.isRecording]);
+    
+    return () => {
+      if (reminderTimerRef.current) {
+        clearInterval(reminderTimerRef.current);
+        reminderTimerRef.current = null;
+      }
+    };
+  }, [agoraState.isRecording, agoraState.participants]);
 
   // Simulated recording functions (browser-based)
   const startRecording = async () => {

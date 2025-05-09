@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { AgoraStateManager } from '@/types/agoraContext';
 import { MeetingUser } from '@/types/meeting';
@@ -19,7 +20,7 @@ export const useJoinMeeting = ({
 }: Pick<AgoraStateManager, 'agoraState' | 'currentUser' | 'setCurrentUser' | 'participants' | 'setParticipants' | 'setAgoraState' | 'joinInProgress' | 'setJoinInProgress'> & { clientInitialized: boolean }) => {
   
   // Add a small delay to ensure client has time to initialize fully
-  const waitForClientInitialization = (timeoutMs = 2000): Promise<boolean> => {
+  const waitForClientInitialization = (timeoutMs = 5000): Promise<boolean> => {
     console.log("Waiting for client initialization...");
     
     // If client is already available, resolve immediately
@@ -81,7 +82,7 @@ export const useJoinMeeting = ({
         ...prev,
         participants: {
           ...prev.participants,
-          [user.id]: user
+          [user.id]: {...user, isCurrent: true}
         }
       }));
       
@@ -91,8 +92,8 @@ export const useJoinMeeting = ({
     try {
       setJoinInProgress(true);
       
-      // Wait for client to be initialized - with timeout
-      const clientReady = await waitForClientInitialization(5000);
+      // Wait for client to be initialized - with increased timeout
+      const clientReady = await waitForClientInitialization(10000);
       
       // Ensure client is initialized - if not, we need to wait
       if (!clientReady || !agoraState.client) {
@@ -108,10 +109,10 @@ export const useJoinMeeting = ({
       
       setCurrentUser(user);
       
-      // Add user to participants
+      // Add user to participants with isCurrent flag
       setParticipants(prev => ({
         ...prev,
-        [user.id]: user
+        [user.id]: {...user, isCurrent: true}
       }));
       
       // Also update participants in Agora state
@@ -119,7 +120,7 @@ export const useJoinMeeting = ({
         ...prev,
         participants: {
           ...prev.participants,
-          [user.id]: user
+          [user.id]: {...user, isCurrent: true}
         }
       }));
       

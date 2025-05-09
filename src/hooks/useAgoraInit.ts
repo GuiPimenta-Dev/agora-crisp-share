@@ -41,6 +41,9 @@ export const useAgoraInit = ({
           description: "Failed to initialize audio service. Please refresh the page.",
           variant: "destructive"
         });
+        
+        // Try to initialize again after a delay
+        setTimeout(initializeClient, 2000);
       }
     };
     
