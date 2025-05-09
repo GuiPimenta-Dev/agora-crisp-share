@@ -32,8 +32,9 @@ export function useAudioStatusSync(
         };
         
         console.log("Audio status update data:", updateData);
+        console.log("User ID:", currentUser.id, "Channel:", channelName);
         
-        const { error } = await supabase
+        const { error, data } = await supabase
           .from("meeting_participants")
           .update(updateData)
           .eq("meeting_id", channelName)
@@ -43,11 +44,11 @@ export function useAudioStatusSync(
           console.error("Failed to update audio status in Supabase:", error);
           toast({
             title: "Sync Error",
-            description: "Failed to update audio status",
+            description: `Failed to update audio status: ${error.message}`,
             variant: "destructive"
           });
         } else {
-          console.log("Successfully updated audio status in database");
+          console.log("Successfully updated audio status in database:", data);
         }
       } catch (error) {
         console.error("Failed to update audio status:", error);

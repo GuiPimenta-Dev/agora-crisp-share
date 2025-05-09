@@ -5,6 +5,7 @@ import { Mic, MicOff, MonitorX, Phone, Share2, Video, VideoOff } from "lucide-re
 import { useAgora } from "@/context/AgoraContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface MeetingControlsProps {
   className?: string;
@@ -31,24 +32,38 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
     const userId = currentUser?.id;
     const meetingId = agoraState?.channelName;
 
-    console.log("🛠️ Atualizando:", field, "=", value);
-    console.log("📎 User ID:", userId, "Channel:", meetingId);
+    console.log(`Updating participant state: ${field} = ${value}`);
+    console.log("User ID:", userId, "Channel:", meetingId);
 
     if (!userId || !meetingId) {
-      console.warn("⚠️ currentUser.id ou channelName ausentes.");
+      console.warn("Missing currentUser.id or channelName");
       return;
     }
 
-    const { error } = await supabase
-      .from("meeting_participants")
-      .update({ [field]: Boolean(value) })
-      .eq("user_id", userId)
-      .eq("meeting_id", meetingId);
+    try {
+      // If updating audio_muted, also update audio_enabled (opposite value)
+      const updateData = field === "audio_muted" 
+        ? { [field]: value, audio_enabled: !value }
+        : { [field]: value };
+        
+      const { error, data } = await supabase
+        .from("meeting_participants")
+        .update(updateData)
+        .eq("user_id", userId)
+        .eq("meeting_id", meetingId);
 
-    if (error) {
-      console.error(`❌ Erro ao atualizar ${field}:`, error.message, error.details);
-    } else {
-      console.log(`✅ Campo ${field} atualizado com sucesso.`);
+      if (error) {
+        console.error(`Error updating ${field}:`, error.message, error.details);
+        toast({
+          title: "Sync Error",
+          description: `Could not update ${field.replace('_', ' ')} status`,
+          variant: "destructive"
+        });
+      } else {
+        console.log(`Successfully updated ${field}:`, data);
+      }
+    } catch (err) {
+      console.error(`Error updating ${field}:`, err);
     }
   };
 
@@ -57,6 +72,7 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
     toggleMute();
     
     // Then directly update the database with the new state (which is opposite of current isMuted)
+    // Note: We pass !isMuted because the state hasn't updated in the UI yet
     await updateState("audio_muted", !isMuted);
   };
 

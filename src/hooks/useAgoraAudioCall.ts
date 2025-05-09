@@ -63,8 +63,8 @@ export function useAgoraAudioCall(
         setIsMuted(true);
         
         toast({
-          title: "Conectado",
-          description: `Você entrou na sala ${channelName} com microfone mutado`,
+          title: "Connected",
+          description: `Joined meeting ${channelName} with microphone muted`,
         });
       } else {
         console.error("Failed to join channel:", channelName);
@@ -141,11 +141,14 @@ export function useAgoraAudioCall(
       audioMutedState: !currentMuted, // Add this as a trigger property
     }));
     
+    // We don't update Supabase directly here - that happens in useAudioStatusSync
+    // and in MeetingControls.handleToggleMute
+    
     toast({
-      title: !currentMuted ? "Microfone silenciado" : "Microfone ativado",
+      title: !currentMuted ? "Microphone muted" : "Microphone unmuted",
       description: !currentMuted 
-        ? "Os outros participantes não podem ouvir você" 
-        : "Os outros participantes podem ouvir você agora",
+        ? "Others cannot hear you" 
+        : "Others can now hear you",
     });
   };
 
