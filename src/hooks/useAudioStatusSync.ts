@@ -60,5 +60,6 @@ export function useAudioStatusSync(
 
     // Update status whenever the muted state changes
     updateAudioStatus();
-  }, [agoraState.localAudioTrack?.muted, currentUser, channelName]);
+  // Add the new audioMutedState as a dependency to trigger the effect
+  }, [agoraState.localAudioTrack?.muted, agoraState.audioMutedState, currentUser, channelName]);
 }

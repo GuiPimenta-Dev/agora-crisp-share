@@ -6,11 +6,13 @@ import {
 } from "@/lib/agoraUtils";
 import { AgoraState } from "@/types/agora";
 import { IAgoraRTCClient } from "agora-rtc-sdk-ng";
+import { MeetingUser } from "@/types/meeting";
 
 export function useAgoraScreenShare(
   agoraState: AgoraState,
   setAgoraState: React.Dispatch<React.SetStateAction<AgoraState>>,
-  setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
+  setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>,
+  currentUser?: MeetingUser | null
 ) {
   const startScreenShare = async (): Promise<void> => {
     if (!agoraState.client || !agoraState.joinState) {
@@ -42,7 +44,7 @@ export function useAgoraScreenShare(
       setAgoraState(prev => ({
         ...prev,
         screenVideoTrack: screenTrack,
-        screenShareUserId: agoraState.uid || currentUser?.id,  // Use current user ID as screen sharer
+        screenShareUserId: currentUser?.id, // Use current user ID passed as prop
       }));
       
       setIsScreenSharing(true);
