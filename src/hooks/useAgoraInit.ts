@@ -39,6 +39,7 @@ export const useAgoraInit = ({
       }
     };
     
+    // Initialize immediately, don't delay
     initializeClient();
 
     // Add listener for page exit to stop recording and download

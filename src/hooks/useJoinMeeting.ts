@@ -50,18 +50,20 @@ export const useJoinMeeting = ({
       return true;
     }
     
-    if (!agoraState.client) {
-      console.error("Cannot join: Agora client not initialized");
-      toast({
-        title: "Connection Error",
-        description: "Audio service not initialized. Please refresh and try again.",
-        variant: "destructive"
-      });
-      return false;
-    }
-    
     try {
       setJoinInProgress(true);
+      
+      // Ensure client is initialized - if not, we need to wait
+      if (!agoraState.client) {
+        console.error("Cannot join: Agora client not initialized");
+        toast({
+          title: "Connection Error",
+          description: "Audio service not initialized. Please wait a moment and try again.",
+          variant: "destructive"
+        });
+        setJoinInProgress(false);
+        return false;
+      }
       
       setCurrentUser(user);
       
@@ -86,6 +88,12 @@ export const useJoinMeeting = ({
       // This is a callback to joinAudioCall which will be passed from the provider
       if (!agoraState.joinAudioCallFunc) {
         console.error("joinAudioCall function not available");
+        toast({
+          title: "Connection Error",
+          description: "Audio service not fully initialized. Please refresh and try again.",
+          variant: "destructive"
+        });
+        setJoinInProgress(false);
         return false;
       }
       
@@ -94,6 +102,7 @@ export const useJoinMeeting = ({
       
       if (!joined) {
         console.error(`Failed to join audio call for channel ${channelName}`);
+        throw new Error("Falha ao entrar na sala de reunião");
       }
       
       return joined;

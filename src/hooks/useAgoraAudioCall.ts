@@ -20,7 +20,7 @@ export function useAgoraAudioCall(
       console.error("Agora client not initialized in joinAudioCall");
       toast({
         title: "Error",
-        description: "Agora client not initialized",
+        description: "Audio service not initialized. Please refresh and try again.",
         variant: "destructive",
       });
       return false;
@@ -72,6 +72,11 @@ export function useAgoraAudioCall(
         });
       } else {
         console.error("Failed to join channel:", channelName);
+        toast({
+          title: "Connection failed",
+          description: "Unable to join meeting. Please try again.",
+          variant: "destructive",
+        });
       }
       
       return joined;
@@ -125,8 +130,8 @@ export function useAgoraAudioCall(
     });
   };
 
-  const toggleMute = () => {
-    if (!agoraState.localAudioTrack) return;
+  const toggleMute = async (): Promise<void> => {
+    if (!agoraState.localAudioTrack) return Promise.resolve();
     
     const newMuteState = !agoraState.localAudioTrack.enabled;
     
@@ -139,6 +144,8 @@ export function useAgoraAudioCall(
         ? "Os outros participantes podem ouvir você agora" 
         : "Os outros participantes não podem ouvir você",
     });
+    
+    return Promise.resolve();
   };
 
   return {

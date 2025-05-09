@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { callGetParticipants } from '@/api/MeetingApiRoutes';
 import { toast } from '@/hooks/use-toast';
 import { AgoraStateManager } from '@/types/agoraContext';
+import { MeetingUser } from '@/types/meeting';
 
 /**
  * Hook to manage participants in a meeting
@@ -38,15 +39,14 @@ export const useAgoraParticipants = ({
             const participantCount = Object.keys(result.participants).length;
             
             if (participantCount > prevParticipantCount && prevParticipantCount > 0) {
-              const newParticipants = Object.entries(result.participants).filter(
-                ([id]) => !participants[id]
-              );
+              const newParticipants = Object.entries(result.participants)
+                .filter(([id]) => !participants[id])
+                .map(([_, participant]) => participant as MeetingUser);
               
-              if (newParticipants.length > 0) {
-                const newUser = newParticipants[0][1];
+              if (newParticipants.length > 0 && newParticipants[0].name) {
                 toast({
                   title: "Novo participante",
-                  description: `${newUser.name} entrou na chamada`,
+                  description: `${newParticipants[0].name} entrou na chamada`,
                 });
               }
             }

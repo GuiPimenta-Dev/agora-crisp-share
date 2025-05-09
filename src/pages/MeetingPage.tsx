@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useAgora } from "@/context/AgoraContext";
 import MeetingRoom from "@/components/MeetingRoom";
@@ -19,13 +19,79 @@ const MeetingPage: React.FC = () => {
   const [joinRetries, setJoinRetries] = useState(0);
   const [joinAttempted, setJoinAttempted] = useState(false);
   
-  useEffect(() => {
+  // Memoize join function to avoid recreating it on each render
+  const joinMeeting = useCallback(async () => {
     if (!meetingId) {
       setError("ID da reunião inválido");
       setIsJoining(false);
       return;
     }
-    
+
+    try {
+      // Set join attempted flag to prevent multiple attempts
+      setJoinAttempted(true);
+      
+      // Check for URL parameters first (direct access via link)
+      const urlUserId = searchParams.get("id");
+      const urlUserName = searchParams.get("name");
+      const urlUserAvatar = searchParams.get("profile_pic");
+      
+      // If URL parameters exist, use them; otherwise, fall back to localStorage
+      const userId = urlUserId || localStorage.getItem("userId") || `user-${Date.now()}`;
+      // Always save the userId to localStorage for future use
+      if (!urlUserId) {
+        localStorage.setItem("userId", userId);
+      }
+      
+      const userName = urlUserName || localStorage.getItem("userName") || "Guest User";
+      const userAvatar = urlUserAvatar || 
+        localStorage.getItem("userAvatar") || 
+        `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`;
+      
+      // If we got params from URL, save them to localStorage for consistency
+      if (!urlUserId && userId) localStorage.setItem("userId", userId);
+      if (!urlUserName && userName) localStorage.setItem("userName", userName);
+      if (!urlUserAvatar && userAvatar) localStorage.setItem("userAvatar", userAvatar);
+      
+      // User object to join the meeting
+      const user = {
+        id: userId,
+        name: userName,
+        avatar: userAvatar
+      };
+      
+      console.log(`Tentando entrar na reunião ${meetingId} como ${userName}`);
+      const result = await callJoinMeeting(meetingId, user);
+      
+      if (result.success && result.user) {
+        console.log("Registrado com sucesso na API da reunião");
+        // Set audioEnabled to true for direct link joins to avoid disabled track issue
+        const joinSuccess = await joinWithUser(meetingId, result.user);
+        
+        if (!joinSuccess) {
+          console.error("Falha ao entrar na reunião com o usuário");
+          throw new Error("Falha ao entrar na sala de reunião");
+        } else {
+          // Atualizar participantes ao entrar com sucesso
+          await refreshParticipants();
+        }
+      } else {
+        setError(result.error || "Falha ao entrar na reunião");
+        toast({
+          title: "Erro",
+          description: result.error || "Falha ao entrar na reunião",
+          variant: "destructive"
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao entrar na reunião:", err);
+      setError("Ocorreu um erro inesperado");
+    } finally {
+      setIsJoining(false);
+    }
+  }, [meetingId, joinWithUser, toast, searchParams, refreshParticipants]);
+  
+  useEffect(() => {
     // Check if we're already in the correct channel
     if (agoraState.joinState && agoraState.channelName === meetingId) {
       console.log(`Já conectado à reunião ${meetingId}, atualizando participantes`);
@@ -39,7 +105,7 @@ const MeetingPage: React.FC = () => {
     // Check if the client is initialized
     if (!agoraState.client) {
       // If we've already tried a few times and still no client, show error
-      if (joinRetries > 3) {
+      if (joinRetries > 6) {
         setError("Falha ao inicializar o cliente de áudio. Tente atualizar a página.");
         setIsJoining(false);
         return;
@@ -47,83 +113,18 @@ const MeetingPage: React.FC = () => {
       
       // Add a small delay and increment retry counter
       const timer = setTimeout(() => {
-        console.log("Tentando inicializar o cliente novamente...");
+        console.log("Tentando inicializar o cliente novamente...", joinRetries);
         setJoinRetries(prev => prev + 1);
       }, 1000);
       
       return () => clearTimeout(timer);
-    }
-    
-    // Only join if we haven't attempted yet
-    if (agoraState.client && !joinAttempted) {
+    } 
+    // Client is initialized but we haven't attempted to join yet
+    else if (!joinAttempted) {
       joinMeeting();
     }
-    
-    async function joinMeeting() {
-      try {
-        // Set join attempted flag to prevent multiple attempts
-        setJoinAttempted(true);
-        
-        // Check for URL parameters first (direct access via link)
-        const urlUserId = searchParams.get("id");
-        const urlUserName = searchParams.get("name");
-        const urlUserAvatar = searchParams.get("profile_pic");
-        
-        // If URL parameters exist, use them; otherwise, fall back to localStorage
-        const userId = urlUserId || localStorage.getItem("userId") || `user-${Date.now()}`;
-        // Always save the userId to localStorage for future use
-        if (!urlUserId) {
-          localStorage.setItem("userId", userId);
-        }
-        
-        const userName = urlUserName || localStorage.getItem("userName") || "Guest User";
-        const userAvatar = urlUserAvatar || 
-          localStorage.getItem("userAvatar") || 
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`;
-        
-        // If we got params from URL, save them to localStorage for consistency
-        if (!urlUserId && userId) localStorage.setItem("userId", userId);
-        if (!urlUserName && userName) localStorage.setItem("userName", userName);
-        if (!urlUserAvatar && userAvatar) localStorage.setItem("userAvatar", userAvatar);
-        
-        // User object to join the meeting
-        const user = {
-          id: userId,
-          name: userName,
-          avatar: userAvatar
-        };
-        
-        console.log(`Tentando entrar na reunião ${meetingId} como ${userName}`);
-        const result = await callJoinMeeting(meetingId, user);
-        
-        if (result.success && result.user) {
-          console.log("Registrado com sucesso na API da reunião");
-          // Set audioEnabled to true for direct link joins to avoid disabled track issue
-          const joinSuccess = await joinWithUser(meetingId, result.user);
-          
-          if (!joinSuccess) {
-            console.error("Falha ao entrar na reunião com o usuário");
-            throw new Error("Falha ao entrar na sala de reunião");
-          } else {
-            // Atualizar participantes ao entrar com sucesso
-            refreshParticipants();
-          }
-        } else {
-          setError(result.error || "Falha ao entrar na reunião");
-          toast({
-            title: "Erro",
-            description: result.error || "Falha ao entrar na reunião",
-            variant: "destructive"
-          });
-        }
-      } catch (err) {
-        console.error("Erro ao entrar na reunião:", err);
-        setError("Ocorreu um erro inesperado");
-      } finally {
-        setIsJoining(false);
-      }
-    }
-  }, [meetingId, agoraState.client, joinWithUser, toast, searchParams, joinRetries, joinAttempted, agoraState.joinState, agoraState.channelName, refreshParticipants]);
+  }, [agoraState.client, agoraState.joinState, agoraState.channelName, 
+      meetingId, joinRetries, joinAttempted, refreshParticipants, joinMeeting]);
 
   // Configurar um intervalo para atualizar regularmente a lista de participantes
   useEffect(() => {
