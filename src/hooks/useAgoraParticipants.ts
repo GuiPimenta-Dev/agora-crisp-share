@@ -1,4 +1,3 @@
-
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MeetingUser } from "@/types/meeting";
@@ -245,7 +244,8 @@ export function useAgoraParticipants(
           });
         }
         else if (payload.eventType === 'DELETE') {
-          const deletedParticipant = payload.old as any;
+          // Fix: Define a type for deleted participant and properly handle properties access
+          const deletedParticipant = payload.old as Record<string, any>;
           const userId = deletedParticipant.user_id;
           
           // Don't notify for our own leave
@@ -257,12 +257,8 @@ export function useAgoraParticipants(
           const isLikelyStatusUpdate = now - lastStatusUpdate < 3000;
           
           if (!isSelf && !isLikelyStatusUpdate && shouldShowNotification(userId, 'leave')) {
-            // Fix: Add proper type checking and default values for deleted participant
-            // Make sure deletedParticipant is an object and has the required properties
-            const participantName = deletedParticipant && 
-              typeof deletedParticipant === 'object' && 
-              'name' in deletedParticipant ? 
-              String(deletedParticipant.name) : 'Unknown user';
+            // Fixed: Access properties safely using optional chaining and nullish coalescing
+            const participantName = deletedParticipant?.name ?? 'Unknown user';
             
             toast({
               title: "Participant left",
