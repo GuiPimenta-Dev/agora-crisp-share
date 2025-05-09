@@ -15,22 +15,24 @@ const MeetingJoin = () => {
   const { joinAudioCall, generateMeetingLink } = useAgora();
   const { toast } = useToast();
 
-  // Check for channel name in URL
+  // Check for channel name in URL and auto-join
   useEffect(() => {
     const urlChannel = getChannelFromUrl();
     if (urlChannel) {
       setChannelName(urlChannel);
-      // Option to auto-join when coming from a link
-      // handleJoin();
+      // Auto-join when coming from a link
+      handleJoin(urlChannel);
     }
   }, []);
 
-  const handleJoin = async () => {
-    if (!channelName.trim()) return;
+  const handleJoin = async (channelNameParam?: string) => {
+    const channelToJoin = channelNameParam || channelName;
+    
+    if (!channelToJoin.trim()) return;
     
     setIsJoining(true);
     try {
-      const joined = await joinAudioCall(channelName);
+      const joined = await joinAudioCall(channelToJoin);
       
       if (!joined) {
         toast({
@@ -117,7 +119,7 @@ const MeetingJoin = () => {
         <CardFooter>
           <Button 
             className="w-full" 
-            onClick={handleJoin} 
+            onClick={() => handleJoin()} 
             disabled={isJoining || !channelName.trim()}
           >
             {isJoining ? (
