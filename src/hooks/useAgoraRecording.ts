@@ -14,6 +14,7 @@ export function useAgoraRecording(
   const [recordingSettings, setRecordingSettings] = useState<RecordingSettings | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const autoRecordingAttempted = useRef<boolean>(false);
+  const recordingStartTime = useRef<number | null>(null);
 
   // Criar elemento de áudio para tocar som de início de gravação
   useEffect(() => {
@@ -41,66 +42,51 @@ export function useAgoraRecording(
       if (hasCoach && hasStudent && !agoraState.isRecording) {
         console.log("Coach e aluno presentes, iniciando gravação automática");
         autoRecordingAttempted.current = true;
-        startRecording();
+        startRecording().catch(err => {
+          console.error("Erro ao iniciar gravação automática:", err);
+          // Reset para tentar novamente
+          setTimeout(() => {
+            autoRecordingAttempted.current = false;
+          }, 10000);
+        });
       }
     }
   }, [agoraState.participants, agoraState.isRecording]);
 
-  // Cloud recording API endpoints
-  const RECORDING_API_URL = "https://api.agora.io/v1/apps/52556fe6809a4624b3227a074c550aca/cloud_recording";
-
-  // Start cloud recording
+  // Simulated recording functions (browser-based)
   const startRecording = async () => {
     if (!agoraState.channelName || agoraState.isRecording) {
       return false;
     }
 
     try {
-      // Generate recording settings
-      const channelName = agoraState.channelName;
-      const token = generateToken(channelName);
-      const uid = "recorder-" + Date.now().toString().slice(-8); // Create a unique recorder UID
+      console.log("Iniciando gravação para o canal:", agoraState.channelName);
       
-      // Store recording settings
-      const settings: RecordingSettings = {
-        channelName,
-        uid,
-        token
-      };
+      // Gerar identificador único para esta gravação
+      const recordingId = `rec-${Date.now()}`;
+      recordingStartTime.current = Date.now();
       
-      setRecordingSettings(settings);
+      // Atualizar o estado da aplicação
+      setAgoraState(prev => ({
+        ...prev,
+        isRecording: true,
+        recordingId: recordingId
+      }));
       
-      // In a real implementation, you would call Agora Cloud Recording API here
-      // Since this requires backend integration, we'll simulate it for this demo
-      
-      // Simulate successful recording start
-      setTimeout(() => {
-        const mockResourceId = "mock-resource-" + Date.now();
-        const mockRecordingId = "mock-recording-" + Date.now();
-        
-        setRecordingSettings(prev => prev ? {
-          ...prev,
-          resourceId: mockResourceId,
-          recordingId: mockRecordingId
-        } : null);
-        
-        setAgoraState(prev => ({
-          ...prev,
-          isRecording: true,
-          recordingId: mockRecordingId
-        }));
-        
-        // Tocar som de início de gravação
-        if (audioRef.current) {
-          audioRef.current.play().catch(err => console.error("Erro ao tocar som de gravação:", err));
+      // Tocar som de início de gravação
+      if (audioRef.current) {
+        try {
+          await audioRef.current.play();
+        } catch (err) {
+          console.warn("Não foi possível tocar som de gravação:", err);
         }
-        
-        toast({
-          title: "Gravação Iniciada",
-          description: "Esta chamada está sendo gravada agora",
-          variant: "default",
-        });
-      }, 1500);
+      }
+      
+      toast({
+        title: "Gravação Iniciada",
+        description: "Esta chamada está sendo gravada agora",
+        variant: "default",
+      });
       
       return true;
     } catch (error) {
@@ -114,32 +100,34 @@ export function useAgoraRecording(
     }
   };
 
-  // Stop cloud recording
+  // Simulação do fim de gravação
   const stopRecording = async () => {
-    if (!agoraState.isRecording || !recordingSettings?.resourceId || !recordingSettings?.recordingId) {
+    if (!agoraState.isRecording || !agoraState.recordingId) {
       return false;
     }
 
     try {
-      // In a real implementation, you would call Agora Cloud Recording API to stop recording
-      // Since this requires backend integration, we'll simulate it
+      console.log("Parando gravação para o canal:", agoraState.channelName);
       
-      // Simulate successful recording stop
+      // Calcular a duração da gravação
+      const durationMs = recordingStartTime.current 
+        ? Date.now() - recordingStartTime.current
+        : 0;
+      const durationMinutes = Math.round(durationMs / 60000);
+      
+      setAgoraState(prev => ({
+        ...prev,
+        isRecording: false,
+      }));
+      
+      toast({
+        title: "Gravação Finalizada",
+        description: `A gravação terminou após ${durationMinutes} minutos. O download começará em breve.`,
+      });
+      
+      // Iniciar download automático após parar a gravação
       setTimeout(() => {
-        setAgoraState(prev => ({
-          ...prev,
-          isRecording: false,
-        }));
-        
-        toast({
-          title: "Recording Stopped",
-          description: "Recording has ended and is being processed. Download will be available shortly.",
-        });
-        
-        // Iniciar download automático após parar a gravação
-        setTimeout(() => {
-          downloadRecording();
-        }, 2000);
+        downloadRecording();
       }, 1500);
       
       return true;
@@ -176,23 +164,39 @@ export function useAgoraRecording(
       
       // Simulate download preparation
       setTimeout(() => {
-        // Create a dummy blob to demonstrate downloading
-        const dummyText = "This is a simulated recording file. In a real implementation, this would be the actual recording.";
-        const blob = new Blob([dummyText], { type: "text/plain" });
+        // Criar um JSON com metadados da gravação para simular um arquivo real
+        const recordingMetadata = {
+          recordingId: agoraState.recordingId,
+          channelName: agoraState.channelName,
+          startTime: recordingStartTime.current,
+          endTime: Date.now(),
+          participants: agoraState.participants ? Object.values(agoraState.participants).map(p => ({
+            id: p.id,
+            name: p.name,
+            role: p.role
+          })) : []
+        };
+        
+        // Criar um arquivo de texto simulado com os metadados da sessão
+        const jsonContent = JSON.stringify(recordingMetadata, null, 2);
+        const blob = new Blob([jsonContent], { type: "application/json" });
         const url = URL.createObjectURL(blob);
+        
+        // Criar elemento para download e disparar o clique
         const a = document.createElement("a");
+        const date = new Date().toISOString().slice(0,19).replace(/:/g, '-');
         a.href = url;
-        a.download = `recording-${agoraState.channelName}-${new Date().toISOString().slice(0,10)}.txt`;
+        a.download = `recording-${agoraState.channelName}-${date}.json`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
         toast({
-          title: "Download Started",
-          description: "Your recording download has started.",
+          title: "Download Iniciado",
+          description: "O arquivo da sua gravação está sendo baixado.",
         });
-      }, 2000);
+      }, 1000);
     } catch (error) {
       console.error("Error downloading recording:", error);
       toast({
