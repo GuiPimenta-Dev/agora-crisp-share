@@ -15,10 +15,29 @@ export function useAgoraAudioCall(
   setIsMuted: React.Dispatch<React.SetStateAction<boolean>>,
   setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
 ) {
+  const [joinAttempts, setJoinAttempts] = useState(0);
+  const MAX_JOIN_ATTEMPTS = 3;
+  
   const joinAudioCall = async (channelName: string, audioEnabled: boolean = true): Promise<boolean> => {
     // Double check client initialization
     if (!agoraState.client) {
       console.error("Agora client not initialized in joinAudioCall");
+      
+      // Retry logic for missing client
+      if (joinAttempts < MAX_JOIN_ATTEMPTS) {
+        setJoinAttempts(prev => prev + 1);
+        const delay = Math.pow(2, joinAttempts) * 1000; // Exponential backoff
+        
+        console.log(`Retrying joinAudioCall in ${delay}ms (attempt ${joinAttempts + 1}/${MAX_JOIN_ATTEMPTS})...`);
+        
+        return new Promise(resolve => {
+          setTimeout(async () => {
+            const result = await joinAudioCall(channelName, audioEnabled);
+            resolve(result);
+          }, delay);
+        });
+      }
+      
       toast({
         title: "Error",
         description: "Audio service not initialized. Please refresh and try again.",
@@ -28,6 +47,9 @@ export function useAgoraAudioCall(
     }
     
     try {
+      // Reset join attempts counter
+      setJoinAttempts(0);
+      
       // Check if we're already in a channel
       if (agoraState.joinState && agoraState.localAudioTrack) {
         console.log("Already joined a channel, reusing existing connection");
@@ -83,6 +105,22 @@ export function useAgoraAudioCall(
       return joined;
     } catch (error) {
       console.error("Error joining audio call:", error);
+      
+      // Retry logic for errors during join
+      if (joinAttempts < MAX_JOIN_ATTEMPTS) {
+        setJoinAttempts(prev => prev + 1);
+        const delay = Math.pow(2, joinAttempts) * 1000; // Exponential backoff
+        
+        console.log(`Error in joinAudioCall, retrying in ${delay}ms (attempt ${joinAttempts + 1}/${MAX_JOIN_ATTEMPTS})...`);
+        
+        return new Promise(resolve => {
+          setTimeout(async () => {
+            const result = await joinAudioCall(channelName, audioEnabled);
+            resolve(result);
+          }, delay);
+        });
+      }
+      
       toast({
         title: "Connection failed",
         description: "Unable to join call. Please check your permissions.",

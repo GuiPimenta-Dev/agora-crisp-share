@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext } from "react";
+import React, { createContext, useContext, useEffect } from "react";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { AgoraState, AgoraContextType } from "@/types/agora";
 import { useAgoraAudioCall } from "@/hooks/useAgoraAudioCall";
@@ -66,13 +66,16 @@ export const AgoraProvider: React.FC<AgoraProviderProps> = ({ children }) => {
     setIsScreenSharing
   );
 
-  // Set audio call function in the state so it can be used by joinWithUser
-  if (!agoraState.joinAudioCallFunc && joinAudioCall) {
-    setAgoraState(prev => ({
-      ...prev,
-      joinAudioCallFunc: joinAudioCall
-    }));
-  }
+  // Ensure the joinAudioCallFunc is set as soon as possible
+  useEffect(() => {
+    if (!agoraState.joinAudioCallFunc && joinAudioCall) {
+      console.log("Setting joinAudioCallFunc in Agora state");
+      setAgoraState(prev => ({
+        ...prev,
+        joinAudioCallFunc: joinAudioCall
+      }));
+    }
+  }, [joinAudioCall, agoraState.joinAudioCallFunc, setAgoraState]);
 
   const { startScreenShare, stopScreenShare } = useAgoraScreenShare(
     agoraState,

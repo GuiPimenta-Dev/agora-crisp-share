@@ -20,8 +20,8 @@ const MeetingPage: React.FC = () => {
   const [joinAttempted, setJoinAttempted] = useState(false);
   
   // Use ref to track max retries to avoid re-renders
-  const maxRetriesRef = useRef(10);
-  const retryIntervalRef = useRef(1500); // ms between retries
+  const maxRetriesRef = useRef(20); // Increase max retries
+  const retryIntervalRef = useRef(2000); // Increase time between retries
   
   // Memoize join function to avoid recreating it on each render
   const joinMeeting = useCallback(async () => {
@@ -64,11 +64,18 @@ const MeetingPage: React.FC = () => {
         avatar: userAvatar
       };
       
-      console.log(`Tentando entrar na reunião ${meetingId} como ${userName}`);
+      console.log(`Tentando entrar na reunião ${meetingId} como ${userName} (tentativa ${joinRetries + 1}/${maxRetriesRef.current})`);
       const result = await callJoinMeeting(meetingId, user);
       
       if (result.success && result.user) {
         console.log("Registrado com sucesso na API da reunião");
+        
+        // Extra safety: check if agoraState.client exists before attempting to join
+        if (!agoraState.client) {
+          console.log("Agora client not initialized yet, will retry");
+          throw new Error("Agora client not initialized yet");
+        }
+        
         // Set audioEnabled to true for direct link joins to avoid disabled track issue
         const joinSuccess = await joinWithUser(meetingId, result.user);
         
@@ -76,6 +83,9 @@ const MeetingPage: React.FC = () => {
           console.error("Falha ao entrar na reunião com o usuário");
           throw new Error("Falha ao entrar na sala de reunião");
         } else {
+          // Reset retry count on success
+          setJoinRetries(0);
+          
           // Atualizar participantes ao entrar com sucesso
           await refreshParticipants();
         }
@@ -93,15 +103,27 @@ const MeetingPage: React.FC = () => {
       // Check if we should retry
       if (joinRetries < maxRetriesRef.current) {
         console.log(`Agendando nova tentativa (${joinRetries + 1}/${maxRetriesRef.current})...`);
+        
+        // Set joinAttempted to false to trigger another join attempt
         setJoinAttempted(false);
+        
+        // Increment retry counter
         setJoinRetries(prev => prev + 1);
       } else {
         setError("Número máximo de tentativas excedido. Por favor, atualize a página e tente novamente.");
+        toast({
+          title: "Erro de conexão",
+          description: "Não foi possível conectar após várias tentativas. Por favor, atualize a página.",
+          variant: "destructive"
+        });
       }
     } finally {
-      setIsJoining(false);
+      // Only set isJoining to false when we've either succeeded or exhausted retries
+      if (agoraState.joinState || joinRetries >= maxRetriesRef.current) {
+        setIsJoining(false);
+      }
     }
-  }, [meetingId, joinWithUser, toast, searchParams, refreshParticipants, joinRetries]);
+  }, [meetingId, joinWithUser, toast, searchParams, refreshParticipants, joinRetries, agoraState.client, agoraState.joinState]);
   
   useEffect(() => {
     // Check if we're already in the correct channel
@@ -134,9 +156,12 @@ const MeetingPage: React.FC = () => {
     // Client is initialized but we haven't attempted to join yet or need to retry
     else if (!joinAttempted || (joinRetries > 0 && !agoraState.joinState)) {
       // Add a small delay before joining to ensure client is fully ready
+      // Increase delay based on retry count for exponential backoff
+      const delay = Math.min(500 + joinRetries * 500, 5000);
+      
       const joinTimer = setTimeout(() => {
         joinMeeting();
-      }, 500);
+      }, delay);
       
       return () => clearTimeout(joinTimer);
     }
@@ -145,14 +170,14 @@ const MeetingPage: React.FC = () => {
 
   // Configurar um intervalo para atualizar regularmente a lista de participantes
   useEffect(() => {
-    if (!isJoining && !error && meetingId) {
+    if (!isJoining && !error && meetingId && agoraState.joinState) {
       const intervalId = setInterval(() => {
         refreshParticipants();
       }, 10000); // Atualiza a cada 10 segundos
       
       return () => clearInterval(intervalId);
     }
-  }, [isJoining, error, meetingId, refreshParticipants]);
+  }, [isJoining, error, meetingId, refreshParticipants, agoraState.joinState]);
   
   if (isJoining) {
     return (
@@ -165,6 +190,11 @@ const MeetingPage: React.FC = () => {
               Conectando ao serviço de áudio... (tentativa {joinRetries}/{maxRetriesRef.current})
             </p>
           )}
+          {joinRetries > 5 && (
+            <p className="text-xs text-muted-foreground mt-2 max-w-md text-center">
+              Isso está demorando mais que o esperado. Por favor, verifique sua conexão com a internet.
+            </p>
+          )}
         </div>
       </div>
     );
@@ -175,7 +205,17 @@ const MeetingPage: React.FC = () => {
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <h2 className="text-2xl font-bold text-destructive mb-4">Erro</h2>
         <p className="text-center text-muted-foreground mb-6">{error}</p>
-        <Button onClick={() => navigate("/")}>Voltar para Home</Button>
+        <div className="flex gap-4">
+          <Button onClick={() => {
+            setError("");
+            setJoinAttempted(false);
+            setJoinRetries(0);
+            setIsJoining(true);
+          }}>
+            Tentar novamente
+          </Button>
+          <Button variant="outline" onClick={() => navigate("/")}>Voltar para Home</Button>
+        </div>
       </div>
     );
   }

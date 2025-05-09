@@ -15,13 +15,18 @@ export const useAgoraInit = ({
   leaveInProgress
 }: Pick<AgoraStateManager, 'agoraState' | 'setAgoraState' | 'clientRef' | 'setClientInitialized' | 'leaveInProgress'>) => {
   const [initializationComplete, setInitializationComplete] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
   // Initialize Agora client on component mount
   useEffect(() => {
+    // Initialize client function with retry logic
     const initializeClient = async () => {
       try {
-        console.log("Initializing Agora client...");
+        console.log(`Initializing Agora client... (attempt ${retryCount + 1})`);
         const client = createClient();
+        
+        // Store client in ref for immediate access
         clientRef.current = client;
         
         // Store client in state
@@ -36,19 +41,28 @@ export const useAgoraInit = ({
         console.log("Agora client initialized successfully");
       } catch (error) {
         console.error("Failed to initialize Agora client:", error);
-        toast({
-          title: "Error",
-          description: "Failed to initialize audio service. Please refresh the page.",
-          variant: "destructive"
-        });
         
-        // Try to initialize again after a delay
-        setTimeout(initializeClient, 2000);
+        // Implement retry with backoff
+        if (retryCount < MAX_RETRIES) {
+          const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+          console.log(`Retrying in ${delay}ms... (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+          
+          setRetryCount(prev => prev + 1);
+          setTimeout(initializeClient, delay);
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to initialize audio service. Please refresh the page.",
+            variant: "destructive"
+          });
+        }
       }
     };
     
-    // Initialize immediately, don't delay
-    initializeClient();
+    // Start initialization process
+    if (!clientRef.current && !initializationComplete && retryCount < MAX_RETRIES) {
+      initializeClient();
+    }
 
     // Add listener for page exit to stop recording and download
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -72,7 +86,7 @@ export const useAgoraInit = ({
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []);
+  }, [retryCount, agoraState.isRecording, clientRef, initializationComplete, leaveInProgress, setAgoraState, setClientInitialized]);
 
   return { initializationComplete };
 };
