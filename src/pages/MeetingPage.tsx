@@ -61,41 +61,29 @@ const MeetingPage: React.FC = () => {
         // Set join attempted flag to prevent multiple attempts
         setJoinAttempted(true);
         
-        // Check for URL parameters first (direct access via link)
-        const urlUserId = searchParams.get("id");
-        const urlUserName = searchParams.get("name");
-        const urlUserAvatar = searchParams.get("profile_pic");
+        // Get userId from URL parameter or localStorage
+        const userId = searchParams.get("id") || localStorage.getItem("userId");
         
-        // If URL parameters exist, use them; otherwise, fall back to localStorage
-        const userId = urlUserId || localStorage.getItem("userId") || `user-${Date.now()}`;
-        // Always save the userId to localStorage for future use
-        if (!urlUserId) {
-          localStorage.setItem("userId", userId);
+        if (!userId) {
+          setError("User ID is required to join the meeting");
+          toast({
+            title: "Error",
+            description: "User ID is required to join the meeting",
+            variant: "destructive"
+          });
+          setIsJoining(false);
+          return;
         }
         
-        const userName = urlUserName || localStorage.getItem("userName") || "Guest User";
-        const userAvatar = urlUserAvatar || 
-          localStorage.getItem("userAvatar") || 
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`;
+        // We now only need userId, other info will be fetched from Supabase
+        console.log(`Attempting to join meeting ${meetingId} as user ${userId}`);
         
-        // If we got params from URL, save them to localStorage for consistency
-        if (!urlUserId && userId) localStorage.setItem("userId", userId);
-        if (!urlUserName && userName) localStorage.setItem("userName", userName);
-        if (!urlUserAvatar && userAvatar) localStorage.setItem("userAvatar", userAvatar);
-        
-        // User object to join the meeting
-        const user = {
-          id: userId,
-          name: userName,
-          avatar: userAvatar
-        };
-        
-        console.log(`Attempting to join meeting ${meetingId} as ${userName}`);
-        const result = await callJoinMeeting(meetingId, user);
+        const result = await callJoinMeeting(meetingId, userId);
         
         if (result.success && result.user) {
-          console.log("Successfully registered with meeting API");
-          // Set audioEnabled to true for direct link joins to avoid disabled track issue
+          console.log("Successfully registered with meeting API", result.user);
+          
+          // Join with the user information retrieved from Supabase
           const joinSuccess = await joinWithUser(meetingId, result.user);
           
           if (!joinSuccess) {
@@ -103,16 +91,19 @@ const MeetingPage: React.FC = () => {
             throw new Error("Failed to join meeting room");
           }
         } else {
-          setError(result.error || "Failed to join meeting");
+          const errorMessage = result.error || "Failed to join meeting";
+          setError(errorMessage);
           toast({
             title: "Error",
-            description: result.error || "Failed to join meeting",
+            description: errorMessage,
             variant: "destructive"
           });
+          setIsJoining(false);
         }
       } catch (err) {
         console.error("Error joining meeting:", err);
         setError("An unexpected error occurred");
+        setIsJoining(false);
       } finally {
         setIsJoining(false);
       }

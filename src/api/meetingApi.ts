@@ -42,21 +42,33 @@ export const apiCreateMeeting = async (data: CreateMeetingRequest) => {
 /**
  * Join a meeting
  */
-export const apiJoinMeeting = async (channelId: string, data: JoinMeetingRequest): Promise<{ 
+export const apiJoinMeeting = async (channelId: string, userId: string): Promise<{ 
   success: boolean; 
   user?: MeetingUser; 
   error?: string;
   channelId?: string;
 }> => {
   try {
+    // First, verify the user exists in the profiles table
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select()
+      .eq("id", userId)
+      .maybeSingle();
+    
+    if (profileError || !profile) {
+      console.error("User profile not found:", profileError || "No data returned");
+      return { success: false, error: "User not found in the system. Access denied." };
+    }
+    
     // Get meeting from Supabase
     const { data: meeting, error: meetingError } = await supabase
       .from("meetings")
       .select()
       .eq("id", channelId)
-      .single();
+      .maybeSingle();
     
-    if (meetingError) {
+    if (meetingError || !meeting) {
       return { success: false, error: `Meeting ${channelId} not found` };
     }
     
@@ -64,19 +76,19 @@ export const apiJoinMeeting = async (channelId: string, data: JoinMeetingRequest
     let role: Role = "listener";
     let audioEnabled = false;
     
-    if (data.id === meeting.coach_id) {
+    if (userId === meeting.coach_id) {
       role = "coach";
       audioEnabled = true;
-    } else if (data.id === meeting.student_id) {
+    } else if (userId === meeting.student_id) {
       role = "student";
       audioEnabled = true;
     }
     
-    // Create user object
+    // Create user object using profile data from Supabase
     const user: MeetingUser = {
-      id: data.id,
-      name: data.name,
-      avatar: data.avatar,
+      id: userId,
+      name: profile.name,
+      avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=random`,
       role,
       audioEnabled
     };
@@ -86,9 +98,9 @@ export const apiJoinMeeting = async (channelId: string, data: JoinMeetingRequest
       .from("meeting_participants")
       .upsert({
         meeting_id: channelId,
-        user_id: data.id,
-        name: data.name,
-        avatar: data.avatar,
+        user_id: userId,
+        name: profile.name,
+        avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=random`,
         role,
         audio_enabled: audioEnabled
       }, { onConflict: 'meeting_id,user_id' });

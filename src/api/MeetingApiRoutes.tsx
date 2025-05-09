@@ -1,7 +1,7 @@
 
 import React from "react";
 import { useToast } from "@/hooks/use-toast";
-import { CreateMeetingRequest, JoinMeetingRequest } from "@/types/meeting";
+import { CreateMeetingRequest } from "@/types/meeting";
 import { apiCreateMeeting, apiJoinMeeting, apiLeaveMeeting, apiGetParticipants } from "./meetingApi";
 
 // This component will handle our API routes
@@ -19,8 +19,8 @@ const MeetingApiRoutes: React.FC = () => {
     };
     
     const handleJoinMeeting = (event: CustomEvent) => {
-      const { channelId, data } = event.detail;
-      apiJoinMeeting(channelId, data as JoinMeetingRequest)
+      const { channelId, userId } = event.detail;
+      apiJoinMeeting(channelId, userId)
         .then(result => {
           window.dispatchEvent(new CustomEvent('meeting:joined', { detail: result }));
         });
@@ -79,7 +79,7 @@ export const callCreateMeeting = (data: CreateMeetingRequest): Promise<any> => {
   });
 };
 
-export const callJoinMeeting = (channelId: string, data: JoinMeetingRequest): Promise<any> => {
+export const callJoinMeeting = (channelId: string, userId: string): Promise<any> => {
   return new Promise((resolve) => {
     // Create a one-time event listener for the response
     const handleResponse = (event: CustomEvent) => {
@@ -89,8 +89,8 @@ export const callJoinMeeting = (channelId: string, data: JoinMeetingRequest): Pr
     
     window.addEventListener('meeting:joined' as any, handleResponse as EventListener);
     
-    // Dispatch the join meeting event
-    window.dispatchEvent(new CustomEvent('meeting:join', { detail: { channelId, data } }));
+    // Dispatch the join meeting event with userId instead of data object
+    window.dispatchEvent(new CustomEvent('meeting:join', { detail: { channelId, userId } }));
   });
 };
 
