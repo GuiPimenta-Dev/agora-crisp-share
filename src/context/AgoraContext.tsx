@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useRef, useEffect } from "react";
 import AgoraRTC, { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { createClient } from "@/lib/agoraUtils";
@@ -10,7 +11,7 @@ import { useScreenRecording } from "@/hooks/useScreenRecording";
 import { generateShareableLink } from "@/lib/tokenGenerator";
 import { toast } from "@/hooks/use-toast";
 import { MeetingUser } from "@/types/meeting";
-import { callGetParticipants } from "@/api/MeetingApiRoutes";
+import { useAgoraParticipants } from "@/hooks/useAgoraParticipants";
 
 const AgoraContext = createContext<AgoraContextType | undefined>(undefined);
 
@@ -90,7 +91,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     currentUser
   );
   
-  // New screen recording hook
+  // Screen recording hook
   const { isRecording: isScreenRecording, toggleRecording: toggleScreenRecording } = useScreenRecording();
 
   // Set up event handlers using our hook
@@ -106,6 +107,9 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setParticipants
   );
 
+  // Use our new participants hook to manage participants list
+  useAgoraParticipants(agoraState.channelName, setParticipants, currentUser);
+  
   // Find remote user who is sharing screen (if any)
   const remoteScreenShareUser = agoraState.remoteUsers.find(
     user => user.uid === agoraState.screenShareUserId
@@ -118,54 +122,6 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     return generateShareableLink(agoraState.channelName);
   };
-
-  // Fetch participants when channel name changes
-  useEffect(() => {
-    const fetchParticipants = async () => {
-      if (agoraState.channelName) {
-        const result = await callGetParticipants(agoraState.channelName);
-        if (result.success && result.participants) {
-          setParticipants(prev => ({
-            ...prev,
-            ...result.participants
-          }));
-        }
-      }
-    };
-
-    if (agoraState.channelName) {
-      fetchParticipants();
-      
-      // Notify when a user joins
-      if (currentUser) {
-        const user = { ...currentUser, isCurrent: true };
-        setParticipants(prev => ({
-          ...prev,
-          [user.id]: user
-        }));
-      }
-    }
-  }, [agoraState.channelName, currentUser]);
-
-  // Add coach recording reminder
-  useEffect(() => {
-    // Check if current user is a coach and if both coach and student are present
-    const isCoach = currentUser?.role === "coach";
-    const hasStudent = Object.values(participants).some(p => p.role === "student");
-    
-    if (isCoach && hasStudent && !isScreenRecording) {
-      // Set up a reminder every 3 minutes
-      const reminderInterval = setInterval(() => {
-        toast({
-          title: "Lembrete de Gravação",
-          description: "Lembre-se de iniciar a gravação da aula para seus registros.",
-          variant: "default",
-        });
-      }, 3 * 60 * 1000); // 3 minutes in milliseconds
-      
-      return () => clearInterval(reminderInterval);
-    }
-  }, [currentUser, participants, isScreenRecording]);
 
   const joinWithUser = async (channelName: string, user: MeetingUser) => {
     // Prevent multiple simultaneous join attempts
