@@ -22,11 +22,8 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
     
     // Execute SQL to enable realtime on the meeting_participants table
-    const { error } = await supabase.rpc('supabase_functions.http', {
-      method: 'POST',
-      url: '/rest/v1/rpc/enable_realtime',
-      headers: { 'Content-Type': 'application/json', 'Prefer': 'return=headers-only' },
-      body: { table_name: 'meeting_participants' },
+    const { error } = await supabase.rpc('enable_realtime', {
+      table_name: 'meeting_participants'
     })
     
     if (error) {

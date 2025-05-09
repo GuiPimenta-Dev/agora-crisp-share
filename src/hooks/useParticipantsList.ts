@@ -26,6 +26,7 @@ export function useParticipantsList(meetingId?: string) {
     const fetchParticipantsWithProfiles = async () => {
       try {
         setIsLoading(true);
+        console.log(`Fetching participants for meeting ${meetingId}`);
         
         // First, get all participants for the meeting
         const { data: participantsData, error: participantsError } = await supabase
@@ -77,6 +78,9 @@ export function useParticipantsList(meetingId?: string) {
 
           // Set the participants state
           setParticipants(combinedParticipants);
+          console.log(`Found ${Object.keys(combinedParticipants).length} participants in meeting ${meetingId}`);
+        } else {
+          console.log(`No participants found in meeting ${meetingId}`);
         }
         
         setIsLoading(false);
@@ -89,8 +93,18 @@ export function useParticipantsList(meetingId?: string) {
 
     fetchParticipantsWithProfiles();
 
-    // Set up realtime subscription
-    const realtimeChannelName = `participants-${meetingId}`;
+    // Set up realtime subscription with a unique channel name
+    const realtimeChannelName = `participants-${meetingId}-${Date.now()}`;
+    console.log(`Setting up realtime subscription on channel: ${realtimeChannelName}`);
+    
+    // Enable realtime for meeting_participants table - this is important
+    // to ensure Supabase is broadcasting changes for this table
+    supabase.rpc('enable_realtime', { table_name: 'meeting_participants' })
+      .then(({ error }) => {
+        if (error) console.error("Error enabling realtime:", error.message);
+        else console.log("Realtime enabled for meeting_participants table");
+      });
+    
     const participantsSubscription = supabase
       .channel(realtimeChannelName)
       .on('postgres_changes', { 
@@ -99,7 +113,7 @@ export function useParticipantsList(meetingId?: string) {
         table: 'meeting_participants',
         filter: `meeting_id=eq.${meetingId}`
       }, async (payload) => {
-        console.log('Realtime participant update:', payload);
+        console.log('Realtime participant update received:', payload);
         
         if (payload.eventType === 'INSERT') {
           const newParticipant = payload.new as any;
@@ -140,6 +154,11 @@ export function useParticipantsList(meetingId?: string) {
             const existing = prev[updatedParticipant.user_id];
             if (!existing) return prev;
             
+            console.log(`Updating participant ${updatedParticipant.user_id}:`, {
+              audioEnabled: updatedParticipant.audio_enabled,
+              screenSharing: updatedParticipant.screen_sharing
+            });
+            
             return {
               ...prev,
               [updatedParticipant.user_id]: {
@@ -169,10 +188,15 @@ export function useParticipantsList(meetingId?: string) {
           });
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`Realtime subscription status: ${status}`);
+      });
+
+    console.log("Realtime subscription set up for meeting participants");
 
     // Clean up subscription when component unmounts
     return () => {
+      console.log(`Cleaning up realtime subscription for ${realtimeChannelName}`);
       supabase.removeChannel(participantsSubscription);
     };
   }, [meetingId]);
