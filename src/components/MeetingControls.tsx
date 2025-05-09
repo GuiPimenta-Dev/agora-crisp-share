@@ -1,9 +1,10 @@
+
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MonitorX, Phone, Share2, Video, VideoOff } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { supabase } from "@/lib/supabaseClient"; // <== Adicione isso se ainda não tiver
+import { supabase } from "@/integrations/supabase/client"; // Fixed import path
 
 interface MeetingControlsProps {
   className?: string;
@@ -20,19 +21,20 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
     isScreenRecording,
     toggleScreenRecording,
     currentUser,
-    channelId // <== canal da reunião, necessário para o .eq no update
+    agoraState // Get agoraState to access channelName
   } = useAgora();
 
   const canUseAudio = currentUser?.role === "coach" || currentUser?.role === "student";
   const canShareScreen = currentUser?.role === "coach" || currentUser?.role === "student";
 
   const updateState = async (field: "audio_muted" | "screen_sharing", value: boolean) => {
-    if (!currentUser?.id || !channelId) return;
+    if (!currentUser?.id || !agoraState.channelName) return; // Use agoraState.channelName instead of channelId
+    
     const { error } = await supabase
       .from("meeting_participants")
       .update({ [field]: value })
       .eq("user_id", currentUser.id)
-      .eq("meeting_id", channelId);
+      .eq("meeting_id", agoraState.channelName); // Use agoraState.channelName instead of channelId
 
     if (error) {
       console.error(`Failed to update ${field}:`, error.message);
