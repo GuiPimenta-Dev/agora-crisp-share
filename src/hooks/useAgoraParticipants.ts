@@ -17,6 +17,9 @@ export function useAgoraParticipants(
   useEffect(() => {
     if (!channelName || !setParticipants) return;
 
+    // Controle para não mostrar notificações duplicadas
+    const notifiedUsers = new Set<string>();
+
     const fetchParticipants = async () => {
       try {
         console.log(`Fetching participants for channel ${channelName}`);
@@ -41,6 +44,10 @@ export function useAgoraParticipants(
         ...prev,
         [user.id]: user
       }));
+      
+      // Adicionar o usuário atual à lista de notificados
+      // para evitar notificações redundantes
+      notifiedUsers.add(user.id);
     }
 
     // Create a unique channel name to prevent potential conflicts
@@ -63,11 +70,14 @@ export function useAgoraParticipants(
           // Don't notify for our own join
           const isSelf = currentUser && currentUser.id === newParticipant.user_id;
           
-          if (!isSelf) {
+          if (!isSelf && !notifiedUsers.has(newParticipant.user_id)) {
             toast({
               title: "Participant joined",
               description: `${newParticipant.name} joined the meeting`
             });
+            
+            // Adicionar à lista de usuarios notificados para evitar notificações duplicadas
+            notifiedUsers.add(newParticipant.user_id);
           }
 
           setParticipants(prev => ({

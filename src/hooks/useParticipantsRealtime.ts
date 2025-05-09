@@ -19,6 +19,9 @@ export function useParticipantsRealtime(
   useEffect(() => {
     if (!meetingId) return;
 
+    // Controle para não mostrar notificações duplicadas
+    const notifiedUsers = new Set<string>();
+    
     // Set up realtime subscription with a unique channel name
     const realtimeChannelName = generateRealtimeChannelName('participants', meetingId);
     console.log(`Setting up realtime subscription on channel: ${realtimeChannelName}`);
@@ -61,13 +64,25 @@ export function useParticipantsRealtime(
             }
           }));
           
-          toast({
-            title: "New participant",
-            description: `${displayName} joined the meeting`
-          });
+          // Apenas notificar novos participantes uma vez
+          if (!notifiedUsers.has(newParticipant.user_id)) {
+            toast({
+              title: "New participant",
+              description: `${displayName} joined the meeting`
+            });
+            notifiedUsers.add(newParticipant.user_id);
+          }
         }
         else if (payload.eventType === 'UPDATE') {
           const updatedParticipant = payload.new as any;
+          const oldParticipant = payload.old as any;
+          
+          // Verificar se é apenas uma atualização de status de áudio/tela
+          // Nesse caso, não queremos notificações "entrou na reunião"
+          const isStatusUpdate = 
+            oldParticipant.audio_enabled !== updatedParticipant.audio_enabled ||
+            oldParticipant.audio_muted !== updatedParticipant.audio_muted ||
+            oldParticipant.screen_sharing !== updatedParticipant.screen_sharing;
           
           // Update the participant's data while preserving other properties
           setParticipants(prev => {

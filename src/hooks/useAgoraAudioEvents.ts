@@ -19,6 +19,10 @@ export function useAgoraAudioEvents(
 
   useEffect(() => {
     if (!client) return;
+    
+    // Flag para controlar notificações de eventos de áudio
+    // para evitar mensagens duplicadas ou indesejadas
+    const notifiedUsers = new Set<string>();
 
     const handleUserAudioPublished = async (user: IAgoraRTCRemoteUser, mediaType: string) => {
       if (mediaType !== "audio") return;
@@ -29,14 +33,22 @@ export function useAgoraAudioEvents(
       if (remoteAudioTrack) {
         remoteAudioTrack.play();
         
-        // Notify about new user with audio
+        // Apenas notificar sobre novo usuário com áudio se não foi notificado anteriormente
         const userId = user.uid.toString();
-        const participantName = participants[userId]?.name || `User ${userId}`;
         
-        toast({
-          title: "User connected audio",
-          description: `${participantName} joined the call`,
-        });
+        if (!notifiedUsers.has(userId)) {
+          const participantName = participants[userId]?.name || `User ${userId}`;
+          
+          console.log(`User ${userId} (${participantName}) connected audio for the first time`);
+          
+          toast({
+            title: "User connected audio",
+            description: `${participantName} joined the call`,
+          });
+          
+          // Marcar como notificado para evitar mensagens duplicadas
+          notifiedUsers.add(userId);
+        }
         
         // Update audio status in Supabase if the user already exists in participants
         if (channelName) {
@@ -70,6 +82,9 @@ export function useAgoraAudioEvents(
       if (user.audioTrack) {
         user.audioTrack.stop();
       }
+      
+      // Não mostramos notificação quando o usuário desativa o áudio
+      // Isso evita mensagens como "fulano saiu" quando na verdade apenas mutou
       
       // Update audio status in Supabase
       const userId = user.uid.toString();
