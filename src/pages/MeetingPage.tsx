@@ -11,7 +11,7 @@ import { Loader2 } from "lucide-react";
 const MeetingPage: React.FC = () => {
   const { meetingId } = useParams();
   const [searchParams] = useSearchParams();
-  const { joinWithUser, agoraState } = useAgora();
+  const { joinWithUser, agoraState, refreshParticipants } = useAgora();
   const { toast } = useToast();
   const [isJoining, setIsJoining] = useState(true);
   const [error, setError] = useState("");
@@ -21,15 +21,18 @@ const MeetingPage: React.FC = () => {
   
   useEffect(() => {
     if (!meetingId) {
-      setError("Invalid meeting ID");
+      setError("ID da reunião inválido");
       setIsJoining(false);
       return;
     }
     
     // Check if we're already in the correct channel
     if (agoraState.joinState && agoraState.channelName === meetingId) {
-      console.log(`Already joined ${meetingId}, no need to rejoin`);
+      console.log(`Já conectado à reunião ${meetingId}, atualizando participantes`);
       setIsJoining(false);
+      
+      // Atualizar a lista de participantes quando entrar na página
+      refreshParticipants();
       return;
     }
     
@@ -37,14 +40,14 @@ const MeetingPage: React.FC = () => {
     if (!agoraState.client) {
       // If we've already tried a few times and still no client, show error
       if (joinRetries > 3) {
-        setError("Failed to initialize audio client. Please try refreshing the page.");
+        setError("Falha ao inicializar o cliente de áudio. Tente atualizar a página.");
         setIsJoining(false);
         return;
       }
       
       // Add a small delay and increment retry counter
       const timer = setTimeout(() => {
-        console.log("Retrying client initialization...");
+        console.log("Tentando inicializar o cliente novamente...");
         setJoinRetries(prev => prev + 1);
       }, 1000);
       
@@ -90,44 +93,58 @@ const MeetingPage: React.FC = () => {
           avatar: userAvatar
         };
         
-        console.log(`Attempting to join meeting ${meetingId} as ${userName}`);
+        console.log(`Tentando entrar na reunião ${meetingId} como ${userName}`);
         const result = await callJoinMeeting(meetingId, user);
         
         if (result.success && result.user) {
-          console.log("Successfully registered with meeting API");
+          console.log("Registrado com sucesso na API da reunião");
           // Set audioEnabled to true for direct link joins to avoid disabled track issue
           const joinSuccess = await joinWithUser(meetingId, result.user);
           
           if (!joinSuccess) {
-            console.error("Failed to join with user");
-            throw new Error("Failed to join meeting room");
+            console.error("Falha ao entrar na reunião com o usuário");
+            throw new Error("Falha ao entrar na sala de reunião");
+          } else {
+            // Atualizar participantes ao entrar com sucesso
+            refreshParticipants();
           }
         } else {
-          setError(result.error || "Failed to join meeting");
+          setError(result.error || "Falha ao entrar na reunião");
           toast({
-            title: "Error",
-            description: result.error || "Failed to join meeting",
+            title: "Erro",
+            description: result.error || "Falha ao entrar na reunião",
             variant: "destructive"
           });
         }
       } catch (err) {
-        console.error("Error joining meeting:", err);
-        setError("An unexpected error occurred");
+        console.error("Erro ao entrar na reunião:", err);
+        setError("Ocorreu um erro inesperado");
       } finally {
         setIsJoining(false);
       }
     }
-  }, [meetingId, agoraState.client, joinWithUser, toast, searchParams, joinRetries, joinAttempted, agoraState.joinState, agoraState.channelName]);
+  }, [meetingId, agoraState.client, joinWithUser, toast, searchParams, joinRetries, joinAttempted, agoraState.joinState, agoraState.channelName, refreshParticipants]);
+
+  // Configurar um intervalo para atualizar regularmente a lista de participantes
+  useEffect(() => {
+    if (!isJoining && !error && meetingId) {
+      const intervalId = setInterval(() => {
+        refreshParticipants();
+      }, 10000); // Atualiza a cada 10 segundos
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [isJoining, error, meetingId, refreshParticipants]);
   
   if (isJoining) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center">
           <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <h2 className="mt-4 text-lg font-medium">Joining meeting...</h2>
+          <h2 className="mt-4 text-lg font-medium">Entrando na reunião...</h2>
           {joinRetries > 0 && (
             <p className="text-sm text-muted-foreground mt-2">
-              Connecting to audio service... (attempt {joinRetries})
+              Conectando ao serviço de áudio... (tentativa {joinRetries})
             </p>
           )}
         </div>
@@ -138,9 +155,9 @@ const MeetingPage: React.FC = () => {
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
-        <h2 className="text-2xl font-bold text-destructive mb-4">Error</h2>
+        <h2 className="text-2xl font-bold text-destructive mb-4">Erro</h2>
         <p className="text-center text-muted-foreground mb-6">{error}</p>
-        <Button onClick={() => navigate("/")}>Go to Home</Button>
+        <Button onClick={() => navigate("/")}>Voltar para Home</Button>
       </div>
     );
   }

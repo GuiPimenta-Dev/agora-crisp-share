@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useRef, useEffect } from "react";
 import AgoraRTC, { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { createClient } from "@/lib/agoraUtils";
@@ -42,6 +41,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [clientInitialized, setClientInitialized] = useState(false);
   const [joinInProgress, setJoinInProgress] = useState(false);
   const clientRef = useRef<IAgoraRTCClient | undefined>();
+  const [participantsLastUpdated, setParticipantsLastUpdated] = useState<number>(Date.now());
 
   // Initialize Agora client immediately on component mount
   useEffect(() => {
@@ -102,6 +102,55 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     startRecording,
     stopRecording
   );
+
+  // Update participants list when remoteUsers changes or when users join/leave
+  useEffect(() => {
+    const fetchParticipants = async () => {
+      if (agoraState.channelName) {
+        try {
+          const result = await callGetParticipants(agoraState.channelName);
+          if (result.success && result.participants) {
+            setParticipants(result.participants);
+            
+            // Caso novo participante tenha entrado, mostrar um toast
+            const participantCount = Object.keys(result.participants).length;
+            const prevParticipantCount = Object.keys(participants).length;
+            
+            if (participantCount > prevParticipantCount && prevParticipantCount > 0) {
+              const newParticipants = Object.entries(result.participants).filter(
+                ([id]) => !participants[id]
+              );
+              
+              if (newParticipants.length > 0) {
+                const [, user] = newParticipants[0];
+                toast({
+                  title: "Novo participante",
+                  description: `${user.name} entrou na chamada`,
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch participants:", error);
+        }
+      }
+    };
+
+    // Fetch immediately when remote users change
+    if (agoraState.channelName) {
+      fetchParticipants();
+    }
+    
+    // Set up polling for participants update (a cada 5 segundos)
+    const intervalId = setInterval(() => {
+      if (agoraState.channelName) {
+        setParticipantsLastUpdated(Date.now());
+        fetchParticipants();
+      }
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [agoraState.remoteUsers, agoraState.channelName, participantsLastUpdated]);
 
   // Find remote user who is sharing screen (if any)
   const remoteScreenShareUser = agoraState.remoteUsers.find(
@@ -221,6 +270,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     participants,
     setParticipants,
     joinWithUser,
+    refreshParticipants: () => setParticipantsLastUpdated(Date.now())
   };
 
   return <AgoraContext.Provider value={contextValue}>{children}</AgoraContext.Provider>;

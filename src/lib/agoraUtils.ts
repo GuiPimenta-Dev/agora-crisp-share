@@ -1,3 +1,4 @@
+
 import AgoraRTC, { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
@@ -7,6 +8,7 @@ import AgoraRTC, {
   ILocalTrack,
   ILocalVideoTrack,
   UID,
+  ScreenVideoTrackInitConfig
 } from "agora-rtc-sdk-ng";
 
 // Define types for our Agora client state
@@ -42,49 +44,58 @@ export const createMicrophoneAudioTrack = async (): Promise<IMicrophoneAudioTrac
 };
 
 // Create screen video track with ultra high quality settings (4K)
-export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
-  const tryCreateTrack = async (width: number, height: number, label: string): Promise<ILocalVideoTrack | null> => {
+export const createScreenVideoTrack = async (config?: Partial<ScreenVideoTrackInitConfig>): Promise<ILocalVideoTrack> => {
+  // Configuração padrão para compartilhamento de tela
+  const defaultConfig: ScreenVideoTrackInitConfig = {
+    encoderConfig: {
+      width: 3840,  // 4K
+      height: 2160,
+      frameRate: 30,
+      bitrateMax: 5000 // 5 Mbps para alta qualidade
+    },
+    optimizationMode: "detail", // priorizar detalhes e qualidade
+    screenSourceType: "screen", // tela inteira por padrão
+    autoSelectDisplaySurface: true // selecionar tela automaticamente
+  };
+
+  // Merge das configurações padrão com as opções passadas
+  const mergedConfig = {
+    ...defaultConfig,
+    ...config
+  };
+
+  try {
+    console.log("📺 Iniciando compartilhamento de tela com configurações:", mergedConfig);
+    const track = await AgoraRTC.createScreenVideoTrack(
+      mergedConfig,
+      "disable" // sem áudio da tela
+    );
+    console.log("✅ Compartilhamento iniciado em 4K @30FPS");
+    return track;
+  } catch (error) {
+    console.error("❌ Erro ao iniciar compartilhamento em 4K, tentando em 1080p:", error);
+    
+    // Fallback para 1080p
     try {
       const track = await AgoraRTC.createScreenVideoTrack(
         {
+          ...mergedConfig,
           encoderConfig: {
-            width,
-            height,
+            width: 1920,
+            height: 1080,
             frameRate: 30,
-            bitrateMax: 5000 // 5 Mbps para alta qualidade
-          },
-          optimizationMode: "detail", // priorizar detalhes e qualidade
-          screenSourceType: "screen"
+            bitrateMax: 2500
+          }
         },
-        "disable" // sem áudio da aba
+        "disable"
       );
-      console.log(`✅ Compartilhamento iniciado em ${label} @30FPS`);
+      console.log("✅ Compartilhamento iniciado em 1080p @30FPS");
       return track;
-    } catch (error) {
-      console.warn(`⚠️ Falha ao iniciar ${label} @30FPS:`, error);
-      return null;
+    } catch (secondError) {
+      console.error("❌ Falha no compartilhamento de tela:", secondError);
+      throw new Error("Não foi possível iniciar o compartilhamento de tela. Verifique as permissões do navegador.");
     }
-  };
-
-  // 1. Tenta em 4K (3840x2160)
-  let track = await tryCreateTrack(3840, 2160, "4K");
-
-  // 2. Fallback para 2K (2560x1440)
-  if (!track) {
-    track = await tryCreateTrack(2560, 1440, "2K");
   }
-
-  // 3. Fallback para 1080p
-  if (!track) {
-    track = await tryCreateTrack(1920, 1080, "1080p");
-  }
-
-  // 4. Se ainda falhar, erro final
-  if (!track) {
-    throw new Error("❌ Não foi possível iniciar o compartilhamento de tela. Verifique as permissões do navegador ou a resolução suportada.");
-  }
-
-  return track;
 };
 
 // Join channel and set up event listeners
