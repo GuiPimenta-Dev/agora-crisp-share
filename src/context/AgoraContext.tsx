@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import AgoraRTC, { 
   IAgoraRTCClient, 
@@ -298,19 +297,33 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
   const stopScreenShare = async (): Promise<void> => {
     if (!agoraState.client || !agoraState.screenVideoTrack) return;
     
-    await stopScreenSharing(agoraState.client, agoraState.screenVideoTrack);
-    
-    setAgoraState(prev => ({
-      ...prev,
-      screenVideoTrack: undefined,
-    }));
-    
-    setIsScreenSharing(false);
-    
-    toast({
-      title: "Compartilhamento finalizado",
-      description: "Você não está mais compartilhando sua tela",
-    });
+    try {
+      // Importante: fazer o unpublish antes de parar o track
+      await agoraState.client.unpublish(agoraState.screenVideoTrack);
+      
+      // Agora podemos parar e fechar o track com segurança
+      agoraState.screenVideoTrack.stop();
+      agoraState.screenVideoTrack.close();
+      
+      setAgoraState(prev => ({
+        ...prev,
+        screenVideoTrack: undefined,
+      }));
+      
+      setIsScreenSharing(false);
+      
+      toast({
+        title: "Compartilhamento finalizado",
+        description: "Você não está mais compartilhando sua tela",
+      });
+    } catch (error) {
+      console.error("Erro ao parar o compartilhamento de tela:", error);
+      toast({
+        title: "Erro ao finalizar compartilhamento",
+        description: "Ocorreu um erro ao tentar parar o compartilhamento. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
   
   // Find remote user who is sharing screen (if any)

@@ -1,4 +1,3 @@
-
 import AgoraRTC, { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
@@ -165,10 +164,14 @@ export const stopScreenSharing = async (
   if (!client || !screenVideoTrack) return;
   
   try {
+    // Make sure to unpublish the track before stopping and closing
     await client.unpublish(screenVideoTrack);
+    
+    // Stop and close the track to release resources and permissions
     screenVideoTrack.stop();
     screenVideoTrack.close();
-    console.log("Screen sharing stopped");
+    
+    console.log("Screen sharing stopped successfully");
   } catch (error) {
     console.error("Error stopping screen sharing:", error);
   }

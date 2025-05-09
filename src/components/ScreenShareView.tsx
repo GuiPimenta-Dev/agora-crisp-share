@@ -39,10 +39,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
     if (localSharing && agoraState.screenVideoTrack && localVideoRef.current) {
       agoraState.screenVideoTrack.play(localVideoRef.current);
       return () => {
-        if (agoraState.screenVideoTrack) {
-          // Não chame stop() aqui para não interromper a transmissão
-          // apenas pare a renderização local
-        }
+        // Cleanup function - don't stop the track here to avoid interrupting broadcast
       };
     }
   }, [localSharing, agoraState.screenVideoTrack]);
