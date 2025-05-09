@@ -7,105 +7,90 @@ import { toast } from "@/hooks/use-toast";
 
 /**
  * Hook to sync user's audio status with Supabase
+ * Completely rewritten for stability and reliability
  */
 export function useAudioStatusSync(
   agoraState: AgoraState,
   currentUser: MeetingUser | null,
   channelName?: string
 ) {
-  // Ref to track the previous muted state to avoid unnecessary updates
-  const prevMutedStateRef = useRef<boolean | null>(null);
-  
-  // Ref to track if an update is in progress to prevent parallel updates
-  const updateInProgressRef = useRef<boolean>(false);
-  
-  // Track last update time for stronger throttling
+  // Track last update time to implement debouncing
   const lastUpdateTimeRef = useRef<number>(0);
   
-  // Track the last database update we sent for audio mute state
-  const lastSentMuteStateRef = useRef<boolean | null>(null);
+  // Track if an update is in progress
+  const updateInProgressRef = useRef<boolean>(false);
   
-  // Track audio status changes - only monitor the agoraState.audioMutedState change
+  // Last known mute state that we've synced to the database
+  const lastSyncedMuteStateRef = useRef<boolean | null>(null);
+  
+  // Monitor audio status changes through track muted property
   useEffect(() => {
-    if (!currentUser || !channelName || !agoraState.localAudioTrack) return;
+    if (!currentUser || !channelName || !agoraState.localAudioTrack) {
+      return;
+    }
 
     // Get current muted state directly from the track
     const audioMuted = agoraState.localAudioTrack.muted;
     
-    // Skip redundant updates (if the state hasn't changed from what we last sent to DB)
-    if (lastSentMuteStateRef.current === audioMuted) {
-      console.log(`Skipping duplicate audio sync - muted state ${audioMuted} already in database`);
+    // Skip if this state is the same as what we last synced
+    if (lastSyncedMuteStateRef.current === audioMuted) {
       return;
     }
     
-    // Skip if an update is already in progress
+    // Skip if an update is in progress
     if (updateInProgressRef.current) {
-      console.log(`Skipping audio sync - update already in progress`);
       return;
     }
     
-    // Enhanced aggressive throttling - only allow updates every 3 seconds
+    // Implement debouncing - only allow updates every 1 second
     const now = Date.now();
-    const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
-    if (timeSinceLastUpdate < 3000) {
-      console.log(`Throttling audio sync - last update was ${timeSinceLastUpdate}ms ago`);
+    if (now - lastUpdateTimeRef.current < 1000) {
       return;
     }
     
-    // Update last update time and previous state ref before the async operation
+    // Update timestamps and state refs
     lastUpdateTimeRef.current = now;
-    prevMutedStateRef.current = audioMuted;
+    updateInProgressRef.current = true;
     
-    // Update audio status when it changes
+    console.log(`Syncing audio status for ${currentUser.name}: ${audioMuted ? 'muted' : 'unmuted'}`);
+    
+    // Update database
     const updateAudioStatus = async () => {
       try {
-        // Mark update as in progress
-        updateInProgressRef.current = true;
+        // Record that we're syncing this state
+        lastSyncedMuteStateRef.current = audioMuted;
         
-        // Record that we're sending this state to the database
-        lastSentMuteStateRef.current = audioMuted;
-        
-        console.log(`Updating audio status for ${currentUser.name} to ${audioMuted ? 'muted' : 'unmuted'}`);
-        
-        // Create the update payload - explicitly setting both fields
-        const updateData = { 
-          audio_muted: audioMuted,
-          audio_enabled: !audioMuted 
-        };
-        
-        // Use a more detailed structure to capture response and error for better debugging
         const { error } = await supabase
           .from("meeting_participants")
-          .update(updateData)
+          .update({
+            audio_muted: audioMuted,
+            audio_enabled: !audioMuted
+          })
           .eq("meeting_id", channelName)
           .eq("user_id", currentUser.id);
           
         if (error) {
-          console.error("Failed to update audio status in Supabase:", error);
-          
-          // Reset lastSentMuteStateRef since the update failed
-          lastSentMuteStateRef.current = null;
+          console.error("Failed to update audio status:", error);
+          lastSyncedMuteStateRef.current = null; // Reset so we can try again
           
           toast({
             title: "Sync Error",
-            description: `Audio status update failed: ${error.message}`,
+            description: "Failed to update audio status",
             variant: "destructive"
           });
         }
       } catch (error) {
-        console.error("Exception in updateAudioStatus:", error);
-        // Reset lastSentMuteStateRef since the update failed
-        lastSentMuteStateRef.current = null;
+        console.error("Error syncing audio status:", error);
+        lastSyncedMuteStateRef.current = null; // Reset so we can try again
       } finally {
-        // Add a delay before allowing more updates for stability
+        // Allow more updates after a delay
         setTimeout(() => {
           updateInProgressRef.current = false;
-        }, 2000);
+        }, 1000);
       }
     };
     
     updateAudioStatus();
     
-  // Only depend on audioMutedState to prevent unwanted updates
-  }, [agoraState.audioMutedState, currentUser, channelName]);
+  }, [agoraState.localAudioTrack?.muted, currentUser, channelName]);
 }

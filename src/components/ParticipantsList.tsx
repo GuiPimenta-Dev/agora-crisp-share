@@ -9,8 +9,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { useParticipantsList } from "@/hooks/useParticipantsList";
 import { MeetingUser, Role } from "@/types/meeting";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
 
 interface ParticipantsListProps {
   meetingId?: string;
@@ -21,74 +19,37 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
   meetingId,
   className = ""
 }) => {
-  const { agoraState, currentUser } = useAgora();
+  const { currentUser } = useAgora();
   const { sortedParticipants, isLoading, error } = useParticipantsList(meetingId);
   
-  // Get initials from name
+  // Helper to get initials for avatar fallback
   const getInitials = (name: string) => {
     if (!name) return "U";
-    
-    return name
-      .split(' ')
+    return name.split(' ')
       .map(part => part[0])
       .join('')
       .toUpperCase()
       .substring(0, 2);
   };
 
-  // Function to get role icon
+  // Role display helpers
   const getRoleIcon = (role: Role) => {
     switch (role) {
-      case "coach":
-        return <Crown className="h-3.5 w-3.5 text-yellow-500" />;
-      case "student":
-        return <Gamepad2 className="h-3.5 w-3.5 text-blue-500" />;
-      default:
-        return <User className="h-3.5 w-3.5 text-neutral-500" />;
+      case "coach": return <Crown className="h-3.5 w-3.5 text-yellow-500" />;
+      case "student": return <Gamepad2 className="h-3.5 w-3.5 text-blue-500" />;
+      default: return <User className="h-3.5 w-3.5 text-neutral-500" />;
     }
   };
   
-  // Function to get role badge color
   const getRoleBadgeClass = (role: Role) => {
     switch (role) {
-      case "coach":
-        return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
-      case "student":
-        return "bg-blue-500/10 text-blue-600 border-blue-500/20";
-      default:
-        return "bg-neutral-500/10 text-neutral-600 border-neutral-500/20";
+      case "coach": return "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+      case "student": return "bg-blue-500/10 text-blue-600 border-blue-500/20";
+      default: return "bg-neutral-500/10 text-neutral-600 border-neutral-500/20";
     }
   };
 
-  // Helper function to update participant status in the database
-  const updateParticipantStatus = async (
-    participantId: string, 
-    field: "audio_muted" | "screen_sharing", 
-    value: boolean
-  ) => {
-    if (!meetingId) return;
-    
-    try {
-      const { error } = await supabase
-        .from("meeting_participants")
-        .update({ [field]: value })
-        .eq("meeting_id", meetingId)
-        .eq("user_id", participantId);
-        
-      if (error) {
-        console.error(`Failed to update ${field} status:`, error);
-        toast({
-          title: "Sync Error",
-          description: `Could not update participant ${field.replace('_', ' ')} status`,
-          variant: "destructive"
-        });
-      }
-    } catch (err) {
-      console.error(`Error updating participant ${field} status:`, err);
-    }
-  };
-
-  // Loading skeletons
+  // Loading state
   if (isLoading) {
     return (
       <Card className={`p-4 shadow-sm ${className}`}>
@@ -140,11 +101,9 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
           {sortedParticipants.map((participant) => {
             const isCurrentUser = currentUser && participant.id === currentUser.id;
             
-            // IMPORTANT: Make sure audio_muted starts as true if it's undefined
-            const isAudioMuted = participant.audioMuted === undefined ? true : participant.audioMuted;
-            
-            // Ensure we're using the actual screen sharing status
-            const isScreenSharing = participant.screenSharing || false;
+            // Default to muted if undefined
+            const isAudioMuted = participant.audioMuted ?? true;
+            const isScreenSharing = participant.screenSharing ?? false;
             
             return (
               <div 
@@ -157,9 +116,10 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
               >
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={participant.avatar} alt={participant.name} />
-                  <AvatarFallback className={`text-xs ${
-                    isCurrentUser ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
-                  }`}>
+                  <AvatarFallback className={isCurrentUser 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-secondary text-secondary-foreground"
+                  }>
                     {getInitials(participant.name)}
                   </AvatarFallback>
                 </Avatar>

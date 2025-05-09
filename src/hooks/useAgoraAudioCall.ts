@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
@@ -7,7 +8,6 @@ import {
 } from "@/lib/agoraUtils";
 import { AgoraState } from "@/types/agora";
 import { IAgoraRTCClient } from "agora-rtc-sdk-ng";
-import { supabase } from "@/integrations/supabase/client";
 
 export function useAgoraAudioCall(
   agoraState: AgoraState,
@@ -15,9 +15,10 @@ export function useAgoraAudioCall(
   setIsMuted: React.Dispatch<React.SetStateAction<boolean>>,
   setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
 ) {
-  // Keep track of last update time to throttle rapid state changes
-  const lastUpdateTimeRef = useRef<number>(0);
-  const pendingMuteStateRef = useRef<boolean | null>(null);
+  // Use ref to prevent rapid state changes and track mute operations
+  const lastActionTimeRef = useRef<number>(0);
+  const actionInProgressRef = useRef<boolean>(false);
+  const pendingMuteOperationRef = useRef<boolean | null>(null);
 
   // Sync UI mute state with track mute state when track changes
   useEffect(() => {
@@ -28,30 +29,28 @@ export function useAgoraAudioCall(
 
   const joinAudioCall = async (channelName: string, audioEnabled: boolean = false): Promise<boolean> => {
     if (!agoraState.client) {
-      console.error("Agora client not initialized in joinAudioCall");
       toast({
         title: "Error",
-        description: "Agora client not initialized",
+        description: "Audio client not initialized",
         variant: "destructive",
       });
       return false;
     }
     
     try {
-      // Check if we're already in a channel
+      // Check if already joined
       if (agoraState.joinState && agoraState.localAudioTrack) {
-        console.log("Already joined a channel, reusing existing connection");
         return true;
       }
 
-      console.log("Creating microphone track, audioEnabled:", audioEnabled);
+      // Create microphone track
+      console.log("Creating audio track, enabled:", audioEnabled);
       const localAudioTrack = await createMicrophoneAudioTrack();
       
-      // IMPORTANT: Set muted state directly instead of using setEnabled
-      // We must use setMuted(true) instead of setEnabled(false) to avoid the TRACK_STATE_UNREACHABLE error
+      // Set initial mute state
       localAudioTrack.setMuted(!audioEnabled);
       
-      console.log("Track created and muted, joining channel:", channelName);
+      console.log("Joining channel:", channelName);
       const joined = await joinChannel(
         agoraState.client,
         channelName,
@@ -60,7 +59,6 @@ export function useAgoraAudioCall(
       );
 
       if (joined) {
-        console.log("Successfully joined channel:", channelName);
         setAgoraState(prev => ({
           ...prev,
           localAudioTrack,
@@ -68,24 +66,22 @@ export function useAgoraAudioCall(
           channelName
         }));
         
-        // Always mute the microphone by default when joining
+        // Always mute by default
         localAudioTrack.setMuted(true);
         setIsMuted(true);
         
         toast({
           title: "Connected",
-          description: `Joined meeting ${channelName} with microphone muted`,
+          description: `Joined meeting ${channelName}`,
         });
-      } else {
-        console.error("Failed to join channel:", channelName);
       }
       
       return joined;
     } catch (error) {
-      console.error("Error joining audio call:", error);
+      console.error("Error joining call:", error);
       toast({
         title: "Connection failed",
-        description: "Unable to join call. Please check your permissions.",
+        description: "Could not join call",
         variant: "destructive",
       });
       return false;
@@ -95,14 +91,15 @@ export function useAgoraAudioCall(
   const leaveAudioCall = async (): Promise<void> => {
     if (!agoraState.client) return;
     
-    // If recording is active, download before leaving
+    // Handle ongoing recording if present
     if (agoraState.recordingId) {
       toast({
-        title: "Preparando gravação",
-        description: "Salvando a gravação da chamada antes de sair...",
+        title: "Preparing recording",
+        description: "Saving recording before leaving...",
       });
     }
     
+    // Close all tracks
     const tracksToClose = [
       agoraState.localAudioTrack,
       agoraState.screenVideoTrack
@@ -118,7 +115,6 @@ export function useAgoraAudioCall(
       remoteUsers: [],
       joinState: false,
       isRecording: false,
-      // Keep recordingId so we can download after leaving
       recordingId: agoraState.recordingId,
     });
     
@@ -126,53 +122,57 @@ export function useAgoraAudioCall(
     setIsMuted(false);
     
     toast({
-      title: "Saiu da chamada",
-      description: "Você saiu da chamada de áudio",
+      title: "Left call",
+      description: "You have left the audio call",
     });
   };
 
   const toggleMute = () => {
     if (!agoraState.localAudioTrack) return;
     
-    // Get the current time to implement throttling
+    // Implement throttling to prevent rapid toggling
     const now = Date.now();
-    if (now - lastUpdateTimeRef.current < 500) {
-      console.log("Throttling rapid mute toggle");
+    if (now - lastActionTimeRef.current < 500 || actionInProgressRef.current) {
+      console.log("Throttling mute toggle");
       return;
     }
-    lastUpdateTimeRef.current = now;
     
-    // Get current muted state
+    // Update refs to track this operation
+    lastActionTimeRef.current = now;
+    actionInProgressRef.current = true;
+    
+    // Get current state
     const currentMuted = agoraState.localAudioTrack.muted;
-    console.log("Toggling mute state from", currentMuted, "to", !currentMuted);
+    const newMuted = !currentMuted;
     
-    // Set the track muted state
-    agoraState.localAudioTrack.setMuted(!currentMuted);
+    console.log(`Toggling mute from ${currentMuted} to ${newMuted}`);
     
-    // Update the UI state immediately
-    setIsMuted(!currentMuted);
+    // Set the track's muted state
+    agoraState.localAudioTrack.setMuted(newMuted);
     
-    // Force update AgoraState to trigger the useEffect in useAudioStatusSync
-    setAgoraState(prev => ({
-      ...prev,
-      audioMutedState: !currentMuted, // Add this as a trigger property
-    }));
+    // Update UI immediately
+    setIsMuted(newMuted);
     
-    // Store this pending state to avoid duplicate notifications
-    pendingMuteStateRef.current = !currentMuted;
+    // Store the pending state to avoid duplicate notifications
+    pendingMuteOperationRef.current = newMuted;
     
-    // Show toast with new state
+    // Show toast
     toast({
-      title: !currentMuted ? "Microphone muted" : "Microphone unmuted",
-      description: !currentMuted 
-        ? "Others cannot hear you" 
-        : "Others can now hear you",
+      title: newMuted ? "Microphone muted" : "Microphone unmuted",
+      description: newMuted ? "Others cannot hear you" : "Others can now hear you",
     });
+    
+    // Allow more operations after a delay
+    setTimeout(() => {
+      actionInProgressRef.current = false;
+      pendingMuteOperationRef.current = null;
+    }, 2000);
   };
 
   return {
     joinAudioCall,
     leaveAudioCall,
-    toggleMute
+    toggleMute,
+    isActionInProgress: actionInProgressRef.current
   };
 }
