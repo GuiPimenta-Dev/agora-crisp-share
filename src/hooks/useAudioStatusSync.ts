@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MeetingUser } from "@/types/meeting";
 import { AgoraState } from "@/types/agora";
+import { toast } from "@/hooks/use-toast";
 
 /**
  * Hook to sync user's audio status with Supabase
@@ -32,6 +33,15 @@ export function useAudioStatusSync(
           
         if (error) {
           console.error("Failed to update audio status in Supabase:", error);
+          
+          // Only show toast for non-authentication errors to avoid spamming
+          if (error.code !== "401" && error.code !== "PGRST116") {
+            toast({
+              title: "Sync Error",
+              description: "Failed to update audio status",
+              variant: "destructive"
+            });
+          }
         }
       } catch (error) {
         console.error("Failed to update audio status:", error);
