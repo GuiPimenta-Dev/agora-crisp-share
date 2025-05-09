@@ -75,9 +75,28 @@ export function useAgoraPresenceSync(
 
     registerPresence();
     
+    // Handle tab close/browser close events to properly remove the participant
+    const handleBeforeUnload = () => {
+      if (currentUser && channelName) {
+        // Using sendBeacon for more reliable delivery during page unload
+        const endpoint = '/api/leave-meeting';
+        const data = JSON.stringify({
+          meetingId: channelName,
+          userId: currentUser.id
+        });
+        navigator.sendBeacon(endpoint, data);
+        
+        console.log("Sent leave meeting beacon on page unload");
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
     // Clean up when leaving
     return () => {
-      // When we leave the meeting, remove ourselves from the participants table
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      
+      // When we leave the meeting or unmount the component, remove ourselves from the participants table
       if (currentUser && channelName) {
         apiLeaveMeeting(channelName, currentUser.id).catch(err => {
           console.error("Error removing participant on cleanup:", err);
@@ -85,4 +104,33 @@ export function useAgoraPresenceSync(
       }
     };
   }, [currentUser, agoraState.joinState, channelName]);
+
+  // Update screen sharing status
+  useEffect(() => {
+    if (!currentUser || !channelName) return;
+
+    // Update screen sharing status when it changes
+    const updateScreenShareStatus = async () => {
+      try {
+        // Check if this user is currently sharing screen
+        const isScreenSharing = agoraState.screenShareUserId === currentUser.id;
+        
+        const { error } = await supabase
+          .from("meeting_participants")
+          .update({ screen_sharing: isScreenSharing })
+          .eq("meeting_id", channelName)
+          .eq("user_id", currentUser.id);
+          
+        if (error) {
+          console.error("Failed to update screen sharing status in Supabase:", error);
+        } else {
+          console.log(`Updated screen sharing status for ${currentUser.name} to ${isScreenSharing}`);
+        }
+      } catch (error) {
+        console.error("Failed to update screen sharing status:", error);
+      }
+    };
+
+    updateScreenShareStatus();
+  }, [agoraState.screenShareUserId, currentUser, channelName]);
 }

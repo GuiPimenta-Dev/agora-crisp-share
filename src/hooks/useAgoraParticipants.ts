@@ -43,9 +43,12 @@ export function useAgoraParticipants(
       }));
     }
 
+    // Create a unique channel name to prevent potential conflicts
+    const realtimeChannelName = `meeting-${channelName}-participants-${Date.now()}`;
+
     // Set up realtime subscription for participant changes
     const participantsSubscription = supabase
-      .channel(`meeting-${channelName}-participants`)
+      .channel(realtimeChannelName)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -75,6 +78,7 @@ export function useAgoraParticipants(
               avatar: newParticipant.avatar,
               role: newParticipant.role,
               audioEnabled: newParticipant.audio_enabled,
+              screenSharing: newParticipant.screen_sharing || false,
               isCurrent: isSelf
             }
           }));
@@ -89,7 +93,8 @@ export function useAgoraParticipants(
               name: updatedParticipant.name,
               avatar: updatedParticipant.avatar,
               role: updatedParticipant.role,
-              audioEnabled: updatedParticipant.audio_enabled
+              audioEnabled: updatedParticipant.audio_enabled,
+              screenSharing: updatedParticipant.screen_sharing || false
             }
           }));
         }

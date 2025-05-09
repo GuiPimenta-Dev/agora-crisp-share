@@ -73,7 +73,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
             .filter(([id]) => currentUser && id !== currentUser.id)
             .map(([id, user]) => {
               const remoteUser = remoteUsers.find(ru => ru.uid.toString() === id);
-              const isSharing = screenShareUserId === id;
+              const isSharing = screenShareUserId === id || user.screenSharing;
               
               return (
                 <div 

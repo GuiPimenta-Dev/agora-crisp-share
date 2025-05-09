@@ -7,7 +7,7 @@ import MeetingControls from "@/components/MeetingControls";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Radio, Download, ClipboardCopy, Link, Flame, Check } from "lucide-react";
+import { Radio, Download, Flame } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -20,23 +20,8 @@ const MeetingRoom: React.FC = () => {
     agoraState: { remoteUsers, screenShareUserId, isRecording, channelName }, 
     isScreenSharing,
     remoteScreenShareUser,
-    generateMeetingLink,
     downloadRecording
   } = useAgora();
-
-  const [linkCopied, setLinkCopied] = React.useState(false);
-
-  const copyLinkToClipboard = () => {
-    try {
-      const link = generateMeetingLink();
-      navigator.clipboard.writeText(link).then(() => {
-        setLinkCopied(true);
-        setTimeout(() => setLinkCopied(false), 2000);
-      });
-    } catch (error) {
-      console.error("Error copying link:", error);
-    }
-  };
 
   return (
     <TooltipProvider>
@@ -66,30 +51,6 @@ const MeetingRoom: React.FC = () => {
                       <span>Recording</span>
                     </Badge>
                   )}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="flex items-center gap-1.5 border-primary/30 bg-black/40 hover:bg-black/60"
-                        onClick={copyLinkToClipboard}
-                      >
-                        {linkCopied ? (
-                          <>
-                            <Check className="h-3.5 w-3.5 text-primary" /> Copied!
-                          </>
-                        ) : (
-                          <>
-                            <ClipboardCopy className="h-3.5 w-3.5 text-primary" /> 
-                            Share Link
-                          </>
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Copy meeting link to clipboard</p>
-                    </TooltipContent>
-                  </Tooltip>
                   {isRecording && (
                     <Tooltip>
                       <TooltipTrigger asChild>

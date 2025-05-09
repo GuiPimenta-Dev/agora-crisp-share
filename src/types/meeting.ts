@@ -4,10 +4,11 @@ export type Role = "coach" | "student" | "listener";
 export interface MeetingUser {
   id: string;
   name: string;
-  avatar: string;
+  avatar?: string;
   role: Role;
-  audioEnabled: boolean;
+  audioEnabled?: boolean;
   isCurrent?: boolean;
+  screenSharing?: boolean;
 }
 
 export interface Meeting {
@@ -23,8 +24,20 @@ export interface CreateMeetingRequest {
   student_id: string;
 }
 
-export interface JoinMeetingRequest {
-  id: string;
-  name: string;
-  avatar: string;
+export interface CreateMeetingResponse {
+  success: boolean;
+  error?: string;
+  meeting?: Meeting;
+}
+
+export interface JoinMeetingResponse {
+  success: boolean;
+  error?: string;
+  user?: MeetingUser;
+}
+
+export interface GetParticipantsResponse {
+  success: boolean;
+  error?: string;
+  participants?: Record<string, MeetingUser>;
 }
