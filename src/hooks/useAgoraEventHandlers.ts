@@ -4,6 +4,8 @@ import { toast } from "@/hooks/use-toast";
 import { AgoraState } from "@/types/agora";
 import { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { MeetingUser } from "@/types/meeting";
+import { supabase } from "@/integrations/supabase/client";
+import { apiLeaveMeeting } from "@/api/meetingApi";
 
 export function useAgoraEventHandlers(
   agoraState: AgoraState,
@@ -17,42 +19,52 @@ export function useAgoraEventHandlers(
   setParticipants: React.Dispatch<React.SetStateAction<Record<string, MeetingUser>>>
 ) {
   const client = agoraState.client;
+  const channelName = agoraState.channelName;
 
   // Effect for participant list synchronization when joining
   useEffect(() => {
-    if (!client || !currentUser || !agoraState.joinState) return;
+    if (!client || !currentUser || !agoraState.joinState || !channelName) return;
 
-    // When we join successfully, broadcast our presence to other participants
-    const broadcastPresence = async () => {
+    // When we join successfully, add ourselves to the database
+    const registerPresence = async () => {
       try {
         // Small delay to ensure connection is ready
         await new Promise(resolve => setTimeout(resolve, 500));
         
-        // Instead of using stream messages, we'll use the "user-joined" event
-        // and update our local state based on that event.
-        // We don't need to explicitly broadcast since Agora handles the presence.
-        
-        // Add ourselves to the participants list
-        setParticipants(prev => {
-          // Only add if not already in the list
-          if (currentUser && !prev[currentUser.id]) {
-            console.log(`Adding current user ${currentUser.name} to participants`);
-            return {
-              ...prev,
-              [currentUser.id]: { ...currentUser, isCurrent: true }
-            };
-          }
-          return prev;
-        });
-        
-        console.log("Current user added to participants list");
+        // Update the meeting_participants table in Supabase to add ourselves
+        const { error } = await supabase
+          .from("meeting_participants")
+          .upsert({
+            meeting_id: channelName,
+            user_id: currentUser.id,
+            name: currentUser.name,
+            avatar: currentUser.avatar,
+            role: currentUser.role,
+            audio_enabled: !agoraState.localAudioTrack?.muted
+          }, { onConflict: 'meeting_id,user_id' });
+          
+        if (error) {
+          console.error("Failed to register presence in Supabase:", error);
+        } else {
+          console.log(`Successfully registered presence for ${currentUser.name} in channel ${channelName}`);
+        }
       } catch (error) {
         console.error("Failed to initialize participant sync:", error);
       }
     };
 
-    broadcastPresence();
-  }, [client, currentUser, agoraState.joinState, setParticipants]);
+    registerPresence();
+    
+    // Clean up when leaving
+    return () => {
+      // When we leave the meeting, remove ourselves from the participants table
+      if (currentUser && channelName) {
+        apiLeaveMeeting(channelName, currentUser.id).catch(err => {
+          console.error("Error removing participant on cleanup:", err);
+        });
+      }
+    };
+  }, [client, currentUser, agoraState.joinState, agoraState.localAudioTrack?.muted, channelName]);
 
   useEffect(() => {
     if (!client) return;
@@ -69,55 +81,48 @@ export function useAgoraEventHandlers(
           
           // Notify about new user with audio
           const userId = user.uid.toString();
-          const participantName = participants[userId]?.name || `Usuário ${userId}`;
+          const participantName = participants[userId]?.name || `User ${userId}`;
           
           toast({
-            title: "Usuário conectou o áudio",
-            description: `${participantName} entrou na chamada`,
+            title: "User connected audio",
+            description: `${participantName} joined the call`,
           });
           
-          // Update the participants list with this user if not already there
-          // Note: This assumes the userId in our participants list matches uid from Agora
-          if (!participants[userId] && currentUser) {
-            console.log(`Adding new remote user ${userId} to participants via audio publish`);
-            
-            // Create a generic user entry
-            setParticipants(prev => ({
-              ...prev,
-              [userId]: {
-                id: userId,
-                name: `Usuário ${userId}`,
-                avatar: `https://ui-avatars.com/api/?name=User&background=random`,
-                role: "listener", // Default role
-                audioEnabled: true,
-                isCurrent: false
-              }
-            }));
+          // Update audio status in Supabase if the user already exists in participants
+          if (participants[userId] && channelName) {
+            console.log(`Updating audio status for user ${userId} to enabled`);
+            supabase.from("meeting_participants")
+              .update({ audio_enabled: true })
+              .eq("meeting_id", channelName)
+              .eq("user_id", userId)
+              .then(({ error }) => {
+                if (error) console.error("Error updating audio status:", error);
+              });
           }
         }
       }
       
       if (mediaType === "video") {
-        // User is sharing screen - verificamos se já há alguém compartilhando
+        // User is sharing screen - check if someone else is already sharing
         setAgoraState(prev => ({
           ...prev,
           screenShareUserId: user.uid
         }));
         
         const userId = user.uid.toString();
-        const participantName = participants[userId]?.name || `Usuário ${userId}`;
+        const participantName = participants[userId]?.name || `User ${userId}`;
         
         toast({
-          title: "Compartilhamento iniciado",
-          description: `${participantName} começou a compartilhar a tela`,
+          title: "Screen sharing started",
+          description: `${participantName} started sharing their screen`,
         });
         
-        // Se eu estava compartilhando, paro meu compartilhamento
+        // If I was sharing, stop my sharing
         if (isScreenSharing) {
           await stopScreenShare();
           toast({
-            title: "Seu compartilhamento foi interrompido",
-            description: "Outro usuário começou a compartilhar a tela",
+            title: "Your screen sharing was interrupted",
+            description: "Another user started sharing their screen",
             variant: "destructive"
           });
         }
@@ -138,6 +143,19 @@ export function useAgoraEventHandlers(
         if (user.audioTrack) {
           user.audioTrack.stop();
         }
+        
+        // Update audio status in Supabase
+        const userId = user.uid.toString();
+        if (channelName) {
+          console.log(`Updating audio status for user ${userId} to disabled`);
+          supabase.from("meeting_participants")
+            .update({ audio_enabled: false })
+            .eq("meeting_id", channelName)
+            .eq("user_id", userId)
+            .then(({ error }) => {
+              if (error) console.error("Error updating audio status:", error);
+            });
+        }
       }
       
       if (mediaType === "video") {
@@ -147,15 +165,15 @@ export function useAgoraEventHandlers(
         }
         
         const userId = user.uid.toString();
-        const participantName = participants[userId]?.name || `Usuário ${userId}`;
+        const participantName = participants[userId]?.name || `User ${userId}`;
         
         setAgoraState(prev => ({
           ...prev,
           screenShareUserId: prev.screenShareUserId === user.uid ? undefined : prev.screenShareUserId
         }));
         toast({
-          title: "Compartilhamento finalizado",
-          description: `${participantName} parou de compartilhar a tela`,
+          title: "Screen sharing ended",
+          description: `${participantName} stopped sharing their screen`,
         });
       }
     });
@@ -177,43 +195,34 @@ export function useAgoraEventHandlers(
         return newState;
       });
       
-      // Remove participant from the participants list
+      // Remove participant from the database
       const userId = user.uid.toString();
+      
+      if (channelName) {
+        apiLeaveMeeting(channelName, userId).catch(err => {
+          console.error("Error removing participant when user left:", err);
+        });
+      }
+      
       if (participants[userId]) {
         const userName = participants[userId].name;
         
-        // Remove from participants and notify others
-        setParticipants(prev => {
-          const newParticipants = { ...prev };
-          delete newParticipants[userId];
-          return newParticipants;
-        });
-        
         // Show toast notification to all remaining users
         toast({
-          title: "Usuário saiu",
-          description: `${userName} saiu da chamada`,
+          title: "User left",
+          description: `${userName} left the call`,
         });
       } else {
         toast({
-          title: "Usuário saiu",
-          description: `Usuário ${user.uid} saiu da chamada`,
+          title: "User left",
+          description: `User ${user.uid} left the call`,
         });
       }
     });
-
-    // Since we can't use direct messaging through the Agora SDK's RTC client,
-    // we'll use custom events when new users join or leave to update our participant list.
-    // The main ways are:
-    // 1. When users publish audio (handled in user-published)
-    // 2. When users leave (handled in user-left)
-    
-    // For incoming API-created participants, they will be added directly to the participants list
-    // when they join the meeting through the API, no need for additional message handling.
 
     // Clean up
     return () => {
       client.removeAllListeners();
     };
-  }, [client, isScreenSharing, stopScreenShare, setAgoraState, startRecording, stopRecording, participants, setParticipants, currentUser]);
+  }, [client, isScreenSharing, stopScreenShare, setAgoraState, startRecording, stopRecording, participants, setParticipants, currentUser, channelName]);
 }

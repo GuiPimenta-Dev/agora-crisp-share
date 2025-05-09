@@ -1,10 +1,11 @@
 
-import React from "react";
+import React, { useEffect } from "react";
 import { IAgoraRTCRemoteUser, UID } from "agora-rtc-sdk-ng";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic, MicOff, Users } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ParticipantsListProps {
   remoteUsers: IAgoraRTCRemoteUser[];
@@ -17,7 +18,66 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
   localUserId = "You",
   screenShareUserId,
 }) => {
-  const { isMuted, currentUser, participants } = useAgora();
+  const { isMuted, currentUser, participants, setParticipants, agoraState } = useAgora();
+  
+  // Set up real-time subscription to participant changes
+  useEffect(() => {
+    if (!agoraState.channelName) return;
+    
+    console.log("Setting up realtime subscription for participants...");
+    
+    // Subscribe to changes in meeting_participants table
+    const channel = supabase
+      .channel('public:meeting_participants')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'meeting_participants',
+          filter: `meeting_id=eq.${agoraState.channelName}`
+        },
+        (payload) => {
+          console.log("Received realtime update:", payload);
+          
+          // Handle different events
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const participantData = payload.new;
+            
+            setParticipants(prev => ({
+              ...prev,
+              [participantData.user_id]: {
+                id: participantData.user_id,
+                name: participantData.name,
+                avatar: participantData.avatar,
+                role: participantData.role,
+                audioEnabled: participantData.audio_enabled,
+                isCurrent: currentUser?.id === participantData.user_id
+              }
+            }));
+          } 
+          
+          if (payload.eventType === 'DELETE') {
+            const participantData = payload.old;
+            
+            setParticipants(prev => {
+              const newParticipants = { ...prev };
+              delete newParticipants[participantData.user_id];
+              return newParticipants;
+            });
+          }
+        }
+      )
+      .subscribe();
+      
+    console.log("Realtime subscription set up for meeting:", agoraState.channelName);
+      
+    // Clean up subscription when component unmounts or channel changes
+    return () => {
+      console.log("Cleaning up realtime subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [agoraState.channelName, currentUser, setParticipants]);
   
   // Get initials from name
   const getInitials = (name: string) => {
@@ -31,7 +91,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
       .substring(0, 2);
   };
   
-  // Função para verificar se o usuário está com som ativo
+  // Function to check if a user's audio is active
   const isUserTalking = (userId: string) => {
     const remoteUser = remoteUsers.find(ru => ru.uid.toString() === userId);
     return remoteUser && remoteUser.hasAudio;
@@ -87,7 +147,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
                   </Avatar>
                   <div className="flex-1 flex justify-between items-center">
                     <div>
-                      <span>{user.name || `Usuário ${id.substring(0, 8)}`}</span>
+                      <span>{user.name || `User ${id.substring(0, 8)}`}</span>
                       <span className="text-xs text-muted-foreground ml-1">({user.role})</span>
                     </div>
                     {remoteUser && remoteUser.hasAudio ? (
