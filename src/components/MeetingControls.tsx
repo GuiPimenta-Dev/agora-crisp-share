@@ -1,10 +1,9 @@
-
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MonitorX, Phone, Share2, Video, VideoOff } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { supabase } from "@/integrations/supabase/client"; // Fixed import path
+import { supabase } from "@/integrations/supabase/client";
 
 interface MeetingControlsProps {
   className?: string;
@@ -21,23 +20,34 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
     isScreenRecording,
     toggleScreenRecording,
     currentUser,
-    agoraState // Get agoraState to access channelName
+    agoraState
   } = useAgora();
 
   const canUseAudio = currentUser?.role === "coach" || currentUser?.role === "student";
   const canShareScreen = currentUser?.role === "coach" || currentUser?.role === "student";
 
   const updateState = async (field: "audio_muted" | "screen_sharing", value: boolean) => {
-    if (!currentUser?.id || !agoraState.channelName) return; // Use agoraState.channelName instead of channelId
-    
+    const userId = currentUser?.id;
+    const meetingId = agoraState?.channelName;
+
+    console.log("🛠️ Atualizando:", field, "=", value);
+    console.log("📎 User ID:", userId, "Channel:", meetingId);
+
+    if (!userId || !meetingId) {
+      console.warn("⚠️ currentUser.id ou channelName ausentes.");
+      return;
+    }
+
     const { error } = await supabase
       .from("meeting_participants")
-      .update({ [field]: value })
-      .eq("user_id", currentUser.id)
-      .eq("meeting_id", agoraState.channelName); // Use agoraState.channelName instead of channelId
+      .update({ [field]: Boolean(value) })
+      .eq("user_id", userId)
+      .eq("meeting_id", meetingId);
 
     if (error) {
-      console.error(`Failed to update ${field}:`, error.message);
+      console.error(`❌ Erro ao atualizar ${field}:`, error.message, error.details);
+    } else {
+      console.log(`✅ Campo ${field} atualizado com sucesso.`);
     }
   };
 
