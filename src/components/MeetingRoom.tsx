@@ -1,4 +1,3 @@
-
 import React from "react";
 import { useAgora } from "@/context/AgoraContext";
 import ParticipantsList from "@/components/ParticipantsList";
@@ -7,7 +6,7 @@ import MeetingControls from "@/components/MeetingControls";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Radio, Download, Copy, Link, Flame } from "lucide-react";
+import { Radio, Download, Copy, Link, Flame, Check } from "lucide-react";
 
 const MeetingRoom: React.FC = () => {
   const { 
