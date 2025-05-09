@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from "react";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { Monitor, Share2, Shield, AlertCircle, Maximize2, Minimize2 } from "lucide-react";
@@ -125,16 +124,21 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
             </Badge>
           </div>
 
-          {/* Botão de maximizar/minimizar - mais destacado para ser facilmente visível */}
+          {/* Botão de tela cheia destacado e mais visível */}
           <Button 
             variant="secondary" 
             size="icon"
-            className="absolute top-3 right-3 bg-blue-600 hover:bg-blue-700 text-white shadow-lg z-50"
+            className="absolute top-3 right-3 bg-blue-600/90 hover:bg-blue-800 text-white shadow-lg z-50 w-12 h-12 rounded-full animate-pulse"
             onClick={toggleFullscreen}
             title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
           >
-            {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+            {isFullscreen ? <Minimize2 className="h-6 w-6" /> : <Maximize2 className="h-6 w-6" />}
           </Button>
+          
+          {/* Texto de ajuda para o botão de tela cheia */}
+          <div className="absolute top-3 right-16 bg-black/70 text-white px-2 py-1 rounded text-sm pointer-events-none opacity-70">
+            Clique para tela cheia
+          </div>
         </div>
       ) : (
         <div className="screen-share-placeholder h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-900/90 to-blue-800/90">
