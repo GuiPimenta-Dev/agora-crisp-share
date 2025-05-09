@@ -128,7 +128,7 @@ const MeetingRoom: React.FC = () => {
           <div className="lg:col-span-1 h-full">
             <ParticipantsList 
               remoteUsers={remoteUsers} 
-              screenShareUserId={screenShareUserId} 
+              screenShareUserId={screenShareUserId ? screenShareUserId.toString() : undefined} 
             />
           </div>
         </div>

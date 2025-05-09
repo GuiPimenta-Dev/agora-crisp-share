@@ -9,7 +9,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 interface ParticipantsListProps {
   remoteUsers: IAgoraRTCRemoteUser[];
   localUserId?: string;
-  screenShareUserId?: string;
+  screenShareUserId?: string;  // Changed to be explicitly a string
 }
 
 const ParticipantsList: React.FC<ParticipantsListProps> = ({
@@ -42,7 +42,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
         <div className="space-y-1">
           {/* Current User */}
           {currentUser && (
-            <div className={`flex items-center gap-3 p-2 rounded-md ${String(screenShareUserId) === currentUser.id ? "bg-secondary/40" : ""}`}>
+            <div className={`flex items-center gap-3 p-2 rounded-md ${screenShareUserId === currentUser.id ? "bg-secondary/40" : ""}`}>
               <Avatar className="h-8 w-8">
                 <AvatarImage src={currentUser.avatar} alt={currentUser.name} />
                 <AvatarFallback className="bg-primary text-primary-foreground text-xs">
@@ -55,7 +55,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
                   <span className="text-xs text-muted-foreground ml-1">({currentUser.role})</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {String(screenShareUserId) === currentUser.id && (
+                  {screenShareUserId === currentUser.id && (
                     <MonitorSmartphone className="h-4 w-4 text-blue-500" />
                   )}
                   {isMuted ? (
@@ -73,7 +73,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
             .filter(([id]) => currentUser && id !== currentUser.id)
             .map(([id, user]) => {
               const remoteUser = remoteUsers.find(ru => ru.uid.toString() === id);
-              const isSharing = String(screenShareUserId) === id;
+              const isSharing = screenShareUserId === id;
               
               return (
                 <div 

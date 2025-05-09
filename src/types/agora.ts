@@ -13,7 +13,7 @@ export interface AgoraState {
   client?: IAgoraRTCClient;
   localAudioTrack?: IMicrophoneAudioTrack;
   screenVideoTrack?: ILocalVideoTrack;
-  screenShareUserId?: UID;
+  screenShareUserId?: UID;  // Keep as UID type here, we'll handle conversion when passing to components
   remoteUsers: IAgoraRTCRemoteUser[];
   joinState: boolean;
   isRecording: boolean;
