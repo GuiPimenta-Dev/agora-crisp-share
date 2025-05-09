@@ -47,12 +47,21 @@ export function generateToken(channelName: string, uid: number = 0): string {
  * @returns The full URL that can be shared with others
  */
 export function generateShareableLink(channelName: string): string {
-  // Create a URL with the channel name as a query parameter
-  const baseUrl = window.location.origin;
-  const url = new URL(baseUrl);
-  url.searchParams.append("channel", channelName);
+  // Use the user's data to make link more personalized
+  const userId = localStorage.getItem("userId") || "";
+  const userName = localStorage.getItem("userName") || "";
+  const userAvatar = localStorage.getItem("userAvatar") || "";
   
-  return url.toString();
+  // Create a meeting URL with direct join path and parameters
+  const baseUrl = window.location.origin;
+  const meetingUrl = new URL(`${baseUrl}/meeting/${channelName}`);
+  
+  // Add user info as query parameters if available
+  if (userId) meetingUrl.searchParams.append("id", userId);
+  if (userName) meetingUrl.searchParams.append("name", userName);
+  if (userAvatar) meetingUrl.searchParams.append("profile_pic", userAvatar);
+  
+  return meetingUrl.toString();
 }
 
 /**

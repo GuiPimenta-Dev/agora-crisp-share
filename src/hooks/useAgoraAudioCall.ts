@@ -17,6 +17,7 @@ export function useAgoraAudioCall(
 ) {
   const joinAudioCall = async (channelName: string, audioEnabled: boolean = true): Promise<boolean> => {
     if (!agoraState.client) {
+      console.error("Agora client not initialized in joinAudioCall");
       toast({
         title: "Error",
         description: "Agora client not initialized",
@@ -27,23 +28,18 @@ export function useAgoraAudioCall(
     
     try {
       // Check if we're already in a channel
-      if (agoraState.joinState) {
+      if (agoraState.joinState && agoraState.localAudioTrack) {
         console.log("Already joined a channel, reusing existing connection");
         return true;
       }
 
+      console.log("Creating microphone track, audioEnabled:", audioEnabled);
       const localAudioTrack = await createMicrophoneAudioTrack();
       
-      // Set initial audio state based on permissions
-      if (!audioEnabled) {
-        localAudioTrack.setEnabled(false);
-        setIsMuted(true);
-      } else {
-        // Ensure track is enabled before publishing
-        localAudioTrack.setEnabled(true);
-        setIsMuted(false);
-      }
+      // IMPORTANT: Always enable the track before publishing to avoid TRACK_IS_DISABLED error
+      localAudioTrack.setEnabled(true);
       
+      console.log("Track created and enabled, joining channel:", channelName);
       const joined = await joinChannel(
         agoraState.client,
         channelName,
@@ -52,17 +48,30 @@ export function useAgoraAudioCall(
       );
 
       if (joined) {
+        console.log("Successfully joined channel:", channelName);
         setAgoraState(prev => ({
           ...prev,
           localAudioTrack,
           joinState: true,
-          channelName // Store the channel name for link generation
+          channelName
         }));
+        
+        // After joining successfully, we can update the mute state
+        if (!audioEnabled) {
+          console.log("Audio disabled by settings, muting microphone");
+          localAudioTrack.setEnabled(false);
+          setIsMuted(true);
+        } else {
+          console.log("Audio enabled");
+          setIsMuted(false);
+        }
         
         toast({
           title: "Connected",
           description: `You've joined channel ${channelName}`,
         });
+      } else {
+        console.error("Failed to join channel:", channelName);
       }
       
       return joined;
