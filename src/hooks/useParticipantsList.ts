@@ -34,7 +34,8 @@ export function useParticipantsList(meetingId?: string) {
           .eq("meeting_id", meetingId);
 
         if (participantsError) {
-          throw new participantsError;
+          // Fix: Don't try to construct the error, just throw it
+          throw new Error(participantsError.message);
         }
 
         // Get all user profiles for these participants
@@ -48,7 +49,7 @@ export function useParticipantsList(meetingId?: string) {
             .in("id", userIds);
 
           if (profilesError) {
-            throw profilesError;
+            throw new Error(profilesError.message);
           }
 
           // Create a map of profiles for easy lookup
