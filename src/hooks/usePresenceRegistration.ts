@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 
 /**
  * Hook to handle user's initial presence registration and cleanup
+ * This hook has been updated to handle anonymous/unauthenticated users
  */
 export function usePresenceRegistration(
   agoraState: AgoraState,
@@ -23,46 +24,65 @@ export function usePresenceRegistration(
       try {
         console.log(`Registering presence for user ${currentUser.id} in channel ${channelName}`);
         
-        // Update the meeting_participants table in Supabase to add ourselves
-        const { error } = await supabase
-          .from("meeting_participants")
-          .upsert({
+        // Try to update via API instead of direct Supabase call to work around auth issues
+        const response = await fetch('/api/register-presence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             meeting_id: channelName,
             user_id: currentUser.id,
             name: currentUser.name || "Anonymous User",
-            avatar: currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=random`,
+            avatar: currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || "User")}&background=random`,
             role: currentUser.role || "listener",
             audio_enabled: agoraState.localAudioTrack ? !agoraState.localAudioTrack.muted : false,
-            screen_sharing: false // Initialize with no screen sharing
-          }, { onConflict: 'meeting_id,user_id' });
+            screen_sharing: false
+          })
+        });
+        
+        // Fallback to direct Supabase call if API route is not available
+        if (!response.ok && response.status === 404) {
+          console.log("API route not available, falling back to direct Supabase call");
           
-        if (error) {
-          console.error("Failed to register presence in Supabase:", error);
-          
-          // Show a more helpful error message based on the error type
-          if (error.code === "401" || error.code === "PGRST116") {
-            console.log("Authentication issue detected when registering presence");
-            toast({
-              title: "Authentication Not Required",
-              description: "Continue using the meeting with limited synchronization",
-              variant: "default"
-            });
+          // Try direct Supabase call (might fail with 401 but that's ok)
+          const { error } = await supabase
+            .from("meeting_participants")
+            .upsert({
+              meeting_id: channelName,
+              user_id: currentUser.id,
+              name: currentUser.name || "Anonymous User",
+              avatar: currentUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name || "User")}&background=random`,
+              role: currentUser.role || "listener",
+              audio_enabled: agoraState.localAudioTrack ? !agoraState.localAudioTrack.muted : false,
+              screen_sharing: false
+            }, { onConflict: 'meeting_id,user_id' });
+            
+          if (error) {
+            console.error("Failed to register presence in Supabase:", error);
+            
+            // Don't show error toast for auth issues - this is expected for anonymous users
+            if (error.code !== "401" && error.code !== "PGRST116") {
+              toast({
+                title: "Sync Warning",
+                description: "Participant list may not be fully synchronized",
+                variant: "default"
+              });
+            }
           } else {
-            toast({
-              title: "Sync Warning",
-              description: "Participant list may not be fully synchronized",
-              variant: "default"
-            });
+            console.log(`Successfully registered presence for ${currentUser.name} in channel ${channelName}`);
           }
-        } else {
-          console.log(`Successfully registered presence for ${currentUser.name} in channel ${channelName}`);
+        } else if (response.ok) {
+          console.log("Successfully registered presence via API");
         }
       } catch (error) {
         console.error("Failed to initialize participant sync:", error);
+        // No toast here to avoid annoying users
       }
     };
 
-    registerPresence();
+    // Small delay to ensure connection is ready
+    const timer = setTimeout(() => {
+      registerPresence();
+    }, 1000);
     
     // Handle tab close/browser close events to properly remove the participant
     const handleBeforeUnload = () => {
@@ -83,6 +103,7 @@ export function usePresenceRegistration(
     
     // Clean up when leaving
     return () => {
+      clearTimeout(timer);
       window.removeEventListener('beforeunload', handleBeforeUnload);
       
       // When we leave the meeting or unmount the component, remove ourselves from the participants table
