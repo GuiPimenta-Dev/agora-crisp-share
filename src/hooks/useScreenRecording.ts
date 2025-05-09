@@ -22,10 +22,10 @@ export function useScreenRecording() {
           echoCancellation: true,
           noiseSuppression: true,
           sampleRate: 44100,
-          suppressLocalAudioPlayback: false,
+          // Removing the unsupported property that was causing TypeScript errors
         },
         preferCurrentTab: true,
-      });
+      } as any); // Use type assertion to allow preferCurrentTab
       
       // Add audio track from system audio if available
       const audioContext = new AudioContext();
