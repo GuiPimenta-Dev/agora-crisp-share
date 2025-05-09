@@ -124,14 +124,19 @@ export function useAgoraAudioCall(
     
     // IMPORTANT: Use setMuted instead of setEnabled to avoid the TRACK_STATE_UNREACHABLE error
     const currentMuted = agoraState.localAudioTrack.muted;
+    console.log("Toggling mute state from", currentMuted, "to", !currentMuted);
+    
+    // Set the track muted state
     agoraState.localAudioTrack.setMuted(!currentMuted);
+    
+    // Update the UI state
     setIsMuted(!currentMuted);
     
     toast({
-      title: !currentMuted ? "Microfone ativado" : "Microfone silenciado",
+      title: !currentMuted ? "Microfone silenciado" : "Microfone ativado",
       description: !currentMuted 
-        ? "Os outros participantes podem ouvir você agora" 
-        : "Os outros participantes não podem ouvir você",
+        ? "Os outros participantes não podem ouvir você" 
+        : "Os outros participantes podem ouvir você agora",
     });
   };
 

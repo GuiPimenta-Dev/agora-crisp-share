@@ -1,4 +1,3 @@
-
 import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic, MicOff, Users, MonitorSmartphone, Crown, Gamepad2, User } from "lucide-react";
@@ -109,7 +108,9 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
         <div className="space-y-1">
           {sortedParticipants.map((participant) => {
             const isCurrentUser = currentUser && participant.id === currentUser.id;
-            const isAudioMuted = participant.audioMuted === undefined ? !participant.audioEnabled : participant.audioMuted;
+            
+            // IMPORTANT: Use the audioMuted property directly instead of checking audioEnabled
+            const isAudioMuted = participant.audioMuted === undefined ? true : participant.audioMuted;
             
             return (
               <div 
