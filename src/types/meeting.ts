@@ -24,6 +24,11 @@ export interface CreateMeetingRequest {
   student_id: string;
 }
 
+export interface JoinMeetingRequest {
+  meetingId: string;
+  userId: string;
+}
+
 export interface CreateMeetingResponse {
   success: boolean;
   error?: string;

@@ -1,5 +1,4 @@
-
-import { CreateMeetingRequest, JoinMeetingRequest, MeetingUser, Role } from "@/types/meeting";
+import { CreateMeetingRequest, MeetingUser, Role } from "@/types/meeting";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
