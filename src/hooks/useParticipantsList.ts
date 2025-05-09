@@ -97,16 +97,7 @@ export function useParticipantsList(meetingId?: string) {
     const realtimeChannelName = `participants-${meetingId}-${Date.now()}`;
     console.log(`Setting up realtime subscription on channel: ${realtimeChannelName}`);
     
-    // Enable realtime for meeting_participants table - this is important
-    // to ensure Supabase is broadcasting changes for this table
-    // Using type assertion to bypass TypeScript checks since the function exists in the database
-    (supabase.rpc as any)('enable_realtime', { 
-      table_name: 'meeting_participants' 
-    }).then(({ error }) => {
-      if (error) console.error("Error enabling realtime:", error.message);
-      else console.log("Realtime enabled for meeting_participants table");
-    });
-    
+    // Create the channel subscription directly without trying to call the RPC function
     const participantsSubscription = supabase
       .channel(realtimeChannelName)
       .on('postgres_changes', { 
