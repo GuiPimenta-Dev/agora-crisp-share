@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { AgoraState, RecordingSettings } from "@/types/agora";
@@ -39,9 +38,8 @@ export function useAgoraRecording(
     if (!agoraState.isRecording && agoraState.participants) {
       // Find current user
       const currentUserId = Object.keys(agoraState.participants).find(id => {
-        // Current user is typically the first to be added to participants
-        // Or we could add a "isCurrentUser" flag in the participants data
-        return agoraState.participants?.[id]?.isCurrent;
+        // Find participant marked as current user
+        return agoraState.participants?.[id]?.isCurrent === true;
       });
 
       const currentUser = currentUserId ? agoraState.participants[currentUserId] : null;
