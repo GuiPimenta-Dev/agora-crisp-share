@@ -23,6 +23,8 @@ export function useAgoraAudioEvents(
   const notifiedUsersRef = useRef<Set<string>>(new Set<string>());
   // Reference to track the last update time for each user
   const lastUpdateTimeRef = useRef<Record<string, number>>({});
+  // Track when a user was first added to avoid double notifications
+  const initialAddTimeRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     if (!client) return;
@@ -39,12 +41,22 @@ export function useAgoraAudioEvents(
         // Only notify about new user with audio if not previously notified
         const userId = user.uid.toString();
         
-        // Skip notification if we recently updated this user's status (within the last 1 second)
+        // Skip notification if we recently updated this user's status (within the last 2 seconds)
         const now = Date.now();
         const lastUpdate = lastUpdateTimeRef.current[userId] || 0;
-        const isRecentUpdate = now - lastUpdate < 1000;
+        const initialAddTime = initialAddTimeRef.current[userId] || 0;
         
-        if (!notifiedUsersRef.current.has(userId) && !isRecentUpdate) {
+        // Consider both: recent updates and if this is the first time seeing this user
+        const isRecentUpdate = now - lastUpdate < 2000;
+        const isFirstAudioEvent = !initialAddTimeRef.current[userId];
+        
+        if (isFirstAudioEvent) {
+          // Save the time when we first saw this user's audio track
+          initialAddTimeRef.current[userId] = now;
+        }
+        
+        // Only notify for new users (not audio status changes) and only if not recently notified
+        if (!notifiedUsersRef.current.has(userId) && !isRecentUpdate && isFirstAudioEvent) {
           const participantName = participants[userId]?.name || `User ${userId}`;
           
           console.log(`User ${userId} (${participantName}) connected audio for the first time`);
@@ -65,7 +77,7 @@ export function useAgoraAudioEvents(
         audioStatesRef.current[userId] = true;
         
         // Update audio status in Supabase if the user already exists in participants
-        if (channelName) {
+        if (channelName && !isRecentUpdate) {
           console.log(`Updating audio status for user ${userId} to unmuted`);
           supabase.from("meeting_participants")
             .update({ 

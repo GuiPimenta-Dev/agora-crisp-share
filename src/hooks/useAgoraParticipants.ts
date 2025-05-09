@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { MeetingUser } from "@/types/meeting";
@@ -15,6 +16,12 @@ export function useAgoraParticipants(
   // Use ref for notifiedUsers to persist across rerenders
   const notifiedUsersRef = useRef<Set<string>>(new Set<string>());
   
+  // Track update timestamps to detect potential status updates vs actual joins
+  const statusUpdateTimestampRef = useRef<Record<string, number>>({});
+  
+  // Track whether a recent notification for a user was shown (any type)
+  const recentlyNotifiedRef = useRef<Record<string, number>>({});
+  
   // Fetch participants when channel name changes
   useEffect(() => {
     if (!channelName || !setParticipants) return;
@@ -27,6 +34,11 @@ export function useAgoraParticipants(
         if (result.success && result.participants) {
           console.log(`Got ${Object.keys(result.participants).length} participants`);
           setParticipants(result.participants);
+          
+          // Mark all initial participants as notified to avoid showing join messages for them
+          Object.keys(result.participants).forEach(userId => {
+            notifiedUsersRef.current.add(userId);
+          });
         }
       } catch (error) {
         console.error("Error fetching participants:", error);
@@ -62,24 +74,38 @@ export function useAgoraParticipants(
       }, (payload) => {
         console.log('Realtime participant update:', payload);
         
-        // Keep track of last update time for each user to detect rapid successive updates
-        const updateTimestampRef = useRef<Record<string, number>>({});
-        
         // Function to check if this might be a duplicate or redundant update
         const isDuplicateUpdate = (userId: string): boolean => {
           const now = Date.now();
-          const lastUpdate = updateTimestampRef.current[userId] || 0;
+          const lastUpdate = statusUpdateTimestampRef.current[userId] || 0;
           const timeDiff = now - lastUpdate;
           
-          // If we got another update for the same user in less than 500ms, consider it a potential duplicate
-          if (timeDiff < 500) {
+          // If we got another update for the same user in less than 1000ms, consider it a potential duplicate
+          if (timeDiff < 1000) {
             console.log(`Potential duplicate update for user ${userId} (${timeDiff}ms since last update)`);
             return true;
           }
           
           // Record this update time
-          updateTimestampRef.current[userId] = now;
+          statusUpdateTimestampRef.current[userId] = now;
           return false;
+        };
+        
+        // Helper function to determine if we should show a notification
+        const shouldShowNotification = (userId: string, type: string): boolean => {
+          const now = Date.now();
+          const lastNotified = recentlyNotifiedRef.current[userId] || 0;
+          const timeDiff = now - lastNotified;
+          
+          // Only show notifications once every 3 seconds for the same user (any type)
+          if (timeDiff < 3000) {
+            console.log(`Skipping ${type} notification for ${userId} (${timeDiff}ms since last notification)`);
+            return false;
+          }
+          
+          // Update the last notification time
+          recentlyNotifiedRef.current[userId] = now;
+          return true;
         };
         
         if (payload.eventType === 'INSERT') {
@@ -92,7 +118,7 @@ export function useAgoraParticipants(
           // Don't notify for our own join
           const isSelf = currentUser && currentUser.id === userId;
           
-          if (!isSelf && !notifiedUsersRef.current.has(userId)) {
+          if (!isSelf && !notifiedUsersRef.current.has(userId) && shouldShowNotification(userId, 'join')) {
             toast({
               title: "Participant joined",
               description: `${newParticipant.name} joined the meeting`
@@ -157,7 +183,7 @@ export function useAgoraParticipants(
           // Don't notify for our own leave
           const isSelf = currentUser && currentUser.id === userId;
           
-          if (!isSelf) {
+          if (!isSelf && shouldShowNotification(userId, 'leave')) {
             toast({
               title: "Participant left",
               description: `${deletedParticipant.name} left the meeting`

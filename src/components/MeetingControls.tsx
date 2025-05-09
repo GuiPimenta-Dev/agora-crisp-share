@@ -1,5 +1,4 @@
-
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, MonitorX, Phone, Share2, Video, VideoOff } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
@@ -24,6 +23,10 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
     currentUser,
     agoraState
   } = useAgora();
+  
+  // Use refs to prevent rapid state changes
+  const lastActionTimeRef = useRef<number>(0);
+  const actionInProgressRef = useRef<boolean>(false);
 
   const canUseAudio = currentUser?.role === "coach" || currentUser?.role === "student";
   const canShareScreen = currentUser?.role === "coach" || currentUser?.role === "student";
@@ -32,9 +35,6 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
   const updateState = async (field: "audio_muted" | "screen_sharing", value: boolean) => {
     const userId = currentUser?.id;
     const meetingId = agoraState?.channelName;
-
-    console.log(`Updating participant state: ${field} = ${value}`);
-    console.log("User ID:", userId, "Channel:", meetingId);
 
     if (!userId || !meetingId) {
       console.warn("Missing userId or meetingId for update");
@@ -47,18 +47,15 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
         ? { [field]: value, audio_enabled: !value }
         : { [field]: value };
       
-      console.log("Update payload:", updateData);
-      
       // Use a more detailed structure to capture response and error info
-      const { error, data, status, statusText } = await supabase
+      const { error } = await supabase
         .from("meeting_participants")
         .update(updateData)
         .eq("user_id", userId)
         .eq("meeting_id", meetingId);
 
       if (error) {
-        console.error(`Error updating ${field}:`, error.message, error.details);
-        console.error("Status:", status, statusText);
+        console.error(`Error updating ${field}:`, error.message);
         
         toast({
           title: "Sync Error",
@@ -67,8 +64,6 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
         });
         return false;
       } else {
-        console.log(`Successfully updated ${field}:`, data);
-        console.log("Update status:", status, statusText);
         return true;
       }
     } catch (err) {
@@ -78,47 +73,68 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
   };
 
   const handleToggleMute = async () => {
-    console.log("Toggle mute clicked, current state:", isMuted);
+    // Prevent rapid clicks - 800ms cooldown
+    const now = Date.now();
+    if (now - lastActionTimeRef.current < 800 || actionInProgressRef.current) {
+      console.log("Action cooldown active or action in progress, ignoring click");
+      return;
+    }
     
-    // First update the local state to give immediate feedback
-    toggleMute();
+    // Update refs to prevent further clicks
+    lastActionTimeRef.current = now;
+    actionInProgressRef.current = true;
     
-    // Then update the database with the new state (opposite of current isMuted since we toggled)
-    const success = await updateState("audio_muted", !isMuted);
-    
-    // If database update fails, revert the local state
-    if (!success) {
-      console.warn("Database update failed, reverting local state");
-      toggleMute(); // Toggle back to original state
+    try {
+      // First update the database with the new state (opposite of current isMuted)
+      // This ensures database is updated before UI changes
+      await updateState("audio_muted", !isMuted);
       
-      toast({
-        title: "Sync Failed",
-        description: "Could not update mute status on server",
-        variant: "destructive"
-      });
+      // Then update the local state to show the change
+      toggleMute();
+    } finally {
+      // Allow new actions after a delay
+      setTimeout(() => {
+        actionInProgressRef.current = false;
+      }, 800);
     }
   };
 
   const handleToggleScreenShare = async () => {
-    if (isScreenSharing) {
-      // First update database
-      await updateState("screen_sharing", false);
-      // Then stop screen share locally
-      stopScreenShare();
-    } else {
-      try {
-        // First start screen share
-        await startScreenShare();
-        // If successful, update database
-        await updateState("screen_sharing", true);
-      } catch (error) {
-        console.error("Screen share failed:", error);
-        toast({
-          title: "Screen Sharing Failed",
-          description: error instanceof Error ? error.message : "Could not start screen sharing",
-          variant: "destructive"
-        });
+    // Prevent rapid clicks
+    const now = Date.now();
+    if (now - lastActionTimeRef.current < 800 || actionInProgressRef.current) {
+      return;
+    }
+    
+    lastActionTimeRef.current = now;
+    actionInProgressRef.current = true;
+    
+    try {
+      if (isScreenSharing) {
+        // First update database
+        await updateState("screen_sharing", false);
+        // Then stop screen share locally
+        await stopScreenShare();
+      } else {
+        try {
+          // First start screen share
+          await startScreenShare();
+          // If successful, update database
+          await updateState("screen_sharing", true);
+        } catch (error) {
+          console.error("Screen share failed:", error);
+          toast({
+            title: "Screen Sharing Failed",
+            description: error instanceof Error ? error.message : "Could not start screen sharing",
+            variant: "destructive"
+          });
+        }
       }
+    } finally {
+      // Allow new actions after a delay
+      setTimeout(() => {
+        actionInProgressRef.current = false;
+      }, 800);
     }
   };
 

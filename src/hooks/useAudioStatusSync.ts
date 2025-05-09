@@ -19,9 +19,9 @@ export function useAudioStatusSync(
   // Ref to track if an update is in progress to prevent parallel updates
   const updateInProgressRef = useRef<boolean>(false);
   
-  // Throttling timer
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
+  // Track last update time for stronger throttling
+  const lastUpdateTimeRef = useRef<number>(0);
+  
   // Track audio status changes
   useEffect(() => {
     if (!currentUser || !channelName || !agoraState.localAudioTrack) return;
@@ -31,75 +31,63 @@ export function useAudioStatusSync(
     
     // Skip redundant updates or if an update is already in progress
     if (prevMutedStateRef.current === audioMuted || updateInProgressRef.current) {
-      console.log("Skipping audio state update: redundant or update in progress");
       return;
     }
     
-    // Throttle updates
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
+    // Enhanced throttling - only allow updates every 800ms
+    const now = Date.now();
+    const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
+    if (timeSinceLastUpdate < 800) {
+      console.log(`Throttling audio sync - last update was ${timeSinceLastUpdate}ms ago`);
+      return;
     }
     
-    // Use throttling to avoid rapid repeated updates
-    timerRef.current = setTimeout(() => {
-      // Update audio status when it changes
-      const updateAudioStatus = async () => {
-        try {
-          // Mark update as in progress
-          updateInProgressRef.current = true;
-          
-          // Update the previous state ref
-          prevMutedStateRef.current = audioMuted;
-          
-          console.log(`Updating audio status for ${currentUser.name} to ${audioMuted ? 'muted' : 'unmuted'}`);
-          
-          // Create the update payload - explicitly setting both fields
-          const updateData = { 
-            audio_muted: audioMuted,
-            audio_enabled: !audioMuted 
-          };
-          
-          console.log("Audio status update payload:", updateData);
-          console.log("User ID:", currentUser.id, "Channel:", channelName);
-          
-          // Use a more detailed structure to capture response and error for better debugging
-          const { error, data, status, statusText } = await supabase
-            .from("meeting_participants")
-            .update(updateData)
-            .eq("meeting_id", channelName)
-            .eq("user_id", currentUser.id);
-            
-          if (error) {
-            console.error("Failed to update audio status in Supabase:", error);
-            console.error("Status:", status, statusText);
-            
-            toast({
-              title: "Sync Error",
-              description: `Audio status update failed: ${error.message}`,
-              variant: "destructive"
-            });
-          } else {
-            console.log("Successfully updated audio status in database:", data);
-            console.log("Update status:", status, statusText);
-          }
-        } catch (error) {
-          console.error("Exception in updateAudioStatus:", error);
-        } finally {
-          // Mark update as completed
-          updateInProgressRef.current = false;
-        }
-      };
-      
-      updateAudioStatus();
-      
-    }, 300); // 300ms throttle
+    // Update last update time
+    lastUpdateTimeRef.current = now;
     
-    return () => {
-      // Clean up the timer if component unmounts during delay
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
+    // Update the previous state ref before the async operation
+    // This prevents multiple rapid updates from being queued
+    prevMutedStateRef.current = audioMuted;
+    
+    // Update audio status when it changes
+    const updateAudioStatus = async () => {
+      try {
+        // Mark update as in progress
+        updateInProgressRef.current = true;
+        
+        console.log(`Updating audio status for ${currentUser.name} to ${audioMuted ? 'muted' : 'unmuted'}`);
+        
+        // Create the update payload - explicitly setting both fields
+        const updateData = { 
+          audio_muted: audioMuted,
+          audio_enabled: !audioMuted 
+        };
+        
+        // Use a more detailed structure to capture response and error for better debugging
+        const { error } = await supabase
+          .from("meeting_participants")
+          .update(updateData)
+          .eq("meeting_id", channelName)
+          .eq("user_id", currentUser.id);
+          
+        if (error) {
+          console.error("Failed to update audio status in Supabase:", error);
+          
+          toast({
+            title: "Sync Error",
+            description: `Audio status update failed: ${error.message}`,
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error("Exception in updateAudioStatus:", error);
+      } finally {
+        // Mark update as completed
+        updateInProgressRef.current = false;
       }
     };
+    
+    updateAudioStatus();
     
   // Add all relevant dependencies to trigger the effect
   }, [agoraState.localAudioTrack?.muted, currentUser, channelName, agoraState.audioMutedState]);
