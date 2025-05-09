@@ -1,3 +1,4 @@
+
 import { CreateMeetingRequest, MeetingUser, Role } from "@/types/meeting";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -101,7 +102,8 @@ export const apiJoinMeeting = async (channelId: string, userId: string): Promise
         name: profile.name,
         avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=random`,
         role,
-        audio_enabled: audioEnabled
+        audio_enabled: audioEnabled,
+        screen_sharing: false
       }, { onConflict: 'meeting_id,user_id' });
     
     if (participantError) {
@@ -163,7 +165,8 @@ export const apiGetParticipants = async (meetingId: string) => {
         name: participant.name,
         avatar: participant.avatar,
         role: participant.role as Role,
-        audioEnabled: participant.audio_enabled
+        audioEnabled: participant.audio_enabled,
+        screenSharing: participant.screen_sharing
       };
     });
     

@@ -213,6 +213,7 @@ export type Database = {
           meeting_id: string
           name: string
           role: string
+          screen_sharing: boolean | null
           updated_at: string
           user_id: string
         }
@@ -224,6 +225,7 @@ export type Database = {
           meeting_id: string
           name: string
           role: string
+          screen_sharing?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -235,6 +237,7 @@ export type Database = {
           meeting_id?: string
           name?: string
           role?: string
+          screen_sharing?: boolean | null
           updated_at?: string
           user_id?: string
         }

@@ -60,7 +60,8 @@ export function useAgoraPresenceSync(
             name: currentUser.name,
             avatar: currentUser.avatar,
             role: currentUser.role,
-            audio_enabled: !agoraState.localAudioTrack?.muted
+            audio_enabled: !agoraState.localAudioTrack?.muted,
+            screen_sharing: false // Initialize with no screen sharing
           }, { onConflict: 'meeting_id,user_id' });
           
         if (error) {
