@@ -55,8 +55,8 @@ export function useAgoraAudioCall(
           channelName
         }));
         
-        // Mudança principal: Mutar o microfone por padrão ao entrar na sala
-        localAudioTrack.setEnabled(false);
+        // Always mute the microphone by default when joining
+        localAudioTrack.setMuted(true);
         setIsMuted(true);
         
         toast({

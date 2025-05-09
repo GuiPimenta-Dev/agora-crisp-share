@@ -22,6 +22,8 @@ export function useScreenShareSync(
         // Check if this user is currently sharing screen
         const isScreenSharing = agoraState.screenShareUserId === currentUser.id;
         
+        console.log(`Updating screen sharing status for ${currentUser.name} to ${isScreenSharing ? 'active' : 'inactive'}`);
+        
         const { error } = await supabase
           .from("meeting_participants")
           .update({ screen_sharing: isScreenSharing })
@@ -30,8 +32,6 @@ export function useScreenShareSync(
           
         if (error) {
           console.error("Failed to update screen sharing status in Supabase:", error);
-        } else {
-          console.log(`Updated screen sharing status for ${currentUser.name} to ${isScreenSharing}`);
         }
       } catch (error) {
         console.error("Failed to update screen sharing status:", error);

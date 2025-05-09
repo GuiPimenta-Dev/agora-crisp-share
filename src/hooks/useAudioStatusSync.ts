@@ -19,6 +19,7 @@ export function useAudioStatusSync(
     // Update audio status when it changes
     const updateAudioStatus = async () => {
       try {
+        // Use the inverse of muted state to determine if audio is enabled
         const audioEnabled = agoraState.localAudioTrack ? !agoraState.localAudioTrack.muted : false;
         
         console.log(`Updating audio status for ${currentUser.name} to ${audioEnabled ? 'enabled' : 'disabled'}`);
@@ -37,6 +38,7 @@ export function useAudioStatusSync(
       }
     };
 
+    // Update status whenever the muted state changes
     updateAudioStatus();
   }, [agoraState.localAudioTrack?.muted, currentUser, channelName]);
 }
