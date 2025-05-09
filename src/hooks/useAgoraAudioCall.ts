@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
@@ -131,6 +132,16 @@ export function useAgoraAudioCall(
     
     // Update the UI state
     setIsMuted(!currentMuted);
+    
+    // Force update AgoraState to trigger the useEffect in useAudioStatusSync
+    setAgoraState(prev => ({
+      ...prev,
+      // Create a new reference to the localAudioTrack to ensure the useEffect in useAudioStatusSync is triggered
+      localAudioTrack: {
+        ...prev.localAudioTrack!,
+        muted: !currentMuted
+      }
+    }));
     
     toast({
       title: !currentMuted ? "Microfone silenciado" : "Microfone ativado",

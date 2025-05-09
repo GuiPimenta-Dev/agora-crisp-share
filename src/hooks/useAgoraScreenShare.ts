@@ -38,9 +38,11 @@ export function useAgoraScreenShare(
       // Publicar o track de vídeo
       await agoraState.client.publish(screenTrack);
       
+      // Update the AgoraState with the current user's ID as the screen sharer
       setAgoraState(prev => ({
         ...prev,
         screenVideoTrack: screenTrack,
+        screenShareUserId: agoraState.uid || currentUser?.id,  // Use current user ID as screen sharer
       }));
       
       setIsScreenSharing(true);
@@ -75,9 +77,11 @@ export function useAgoraScreenShare(
       agoraState.screenVideoTrack.stop();
       agoraState.screenVideoTrack.close();
       
+      // Update the AgoraState to remove screen sharing info
       setAgoraState(prev => ({
         ...prev,
         screenVideoTrack: undefined,
+        screenShareUserId: undefined,  // Clear the screen sharer ID
       }));
       
       setIsScreenSharing(false);
@@ -99,6 +103,7 @@ export function useAgoraScreenShare(
       setAgoraState(prev => ({
         ...prev,
         screenVideoTrack: undefined,
+        screenShareUserId: undefined,
       }));
     }
   };

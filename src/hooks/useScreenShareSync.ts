@@ -42,6 +42,8 @@ export function useScreenShareSync(
               variant: "destructive"
             });
           }
+        } else {
+          console.log(`Successfully updated screen sharing status to ${isScreenSharing ? 'active' : 'inactive'} in database`);
         }
       } catch (error) {
         console.error("Failed to update screen sharing status:", error);
