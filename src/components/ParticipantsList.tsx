@@ -1,3 +1,4 @@
+
 import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Mic, MicOff, Users, MonitorSmartphone, Crown, Gamepad2, User } from "lucide-react";
@@ -86,12 +87,12 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({ className = "" }) =
                     
                     <div className="flex items-center">
                       <span className="font-medium">{participant.name}</span>
-                      {/* Role indicator */}
+                      {/* Role indicator - Fixed to use React.createElement */}
                       {participant.role && roleConfig[participant.role] && (
-                        <roleConfig[participant.role].icon
-                          className={`ml-1.5 h-4 w-4 ${roleConfig[participant.role].color}`}
-                          aria-label={roleConfig[participant.role].label}
-                        />
+                        React.createElement(roleConfig[participant.role].icon, {
+                          className: `ml-1.5 h-4 w-4 ${roleConfig[participant.role].color}`,
+                          "aria-label": roleConfig[participant.role].label
+                        })
                       )}
                       {/* Current user indicator */}
                       {isCurrentUser && (
