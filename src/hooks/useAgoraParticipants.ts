@@ -24,10 +24,7 @@ export function useAgoraParticipants(
         
         if (result.success && result.participants) {
           console.log(`Got ${Object.keys(result.participants).length} participants`);
-          setParticipants(prev => ({
-            ...prev,
-            ...result.participants
-          }));
+          setParticipants(result.participants);
         }
       } catch (error) {
         console.error("Error fetching participants:", error);
@@ -48,7 +45,7 @@ export function useAgoraParticipants(
 
     // Set up realtime subscription for participant changes
     const participantsSubscription = supabase
-      .channel(`meeting-${channelName}`)
+      .channel(`meeting-${channelName}-participants`)
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
@@ -77,6 +74,7 @@ export function useAgoraParticipants(
               name: newParticipant.name,
               avatar: newParticipant.avatar,
               role: newParticipant.role,
+              audioEnabled: newParticipant.audio_enabled,
               isCurrent: isSelf
             }
           }));
@@ -117,8 +115,11 @@ export function useAgoraParticipants(
       })
       .subscribe();
 
+    console.log("Realtime subscription set up for meeting participants:", channelName);
+
     // Clean up subscription
     return () => {
+      console.log("Cleaning up participants subscription");
       participantsSubscription.unsubscribe();
     };
   }, [channelName, setParticipants, currentUser]);

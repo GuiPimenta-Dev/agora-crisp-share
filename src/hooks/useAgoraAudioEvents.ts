@@ -39,7 +39,7 @@ export function useAgoraAudioEvents(
         });
         
         // Update audio status in Supabase if the user already exists in participants
-        if (participants[userId] && channelName) {
+        if (channelName) {
           console.log(`Updating audio status for user ${userId} to enabled`);
           supabase.from("meeting_participants")
             .update({ audio_enabled: true })
