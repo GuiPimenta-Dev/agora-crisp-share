@@ -30,9 +30,14 @@ export function useAgoraEventHandlers(
         const remoteAudioTrack = user.audioTrack;
         if (remoteAudioTrack) {
           remoteAudioTrack.play();
+          
+          // Notify about new user with audio
+          const userId = user.uid.toString();
+          const participantName = participants[userId]?.name || `Usuário ${userId}`;
+          
           toast({
             title: "Usuário conectou o áudio",
-            description: `Usuário ${user.uid} entrou na chamada`,
+            description: `${participantName} entrou na chamada`,
           });
         }
       }
@@ -43,9 +48,13 @@ export function useAgoraEventHandlers(
           ...prev,
           screenShareUserId: user.uid
         }));
+        
+        const userId = user.uid.toString();
+        const participantName = participants[userId]?.name || `Usuário ${userId}`;
+        
         toast({
           title: "Compartilhamento iniciado",
-          description: `Usuário ${user.uid} começou a compartilhar a tela`,
+          description: `${participantName} começou a compartilhar a tela`,
         });
         
         // Se eu estava compartilhando, paro meu compartilhamento
@@ -65,9 +74,6 @@ export function useAgoraEventHandlers(
           ...prev,
           remoteUsers: [...prev.remoteUsers.filter(u => u.uid !== user.uid), user]
         };
-        
-        // No automatic recording anymore
-        
         return newState;
       });
     });
@@ -85,13 +91,16 @@ export function useAgoraEventHandlers(
           user.videoTrack.stop();
         }
         
+        const userId = user.uid.toString();
+        const participantName = participants[userId]?.name || `Usuário ${userId}`;
+        
         setAgoraState(prev => ({
           ...prev,
           screenShareUserId: prev.screenShareUserId === user.uid ? undefined : prev.screenShareUserId
         }));
         toast({
           title: "Compartilhamento finalizado",
-          description: `Usuário ${user.uid} parou de compartilhar a tela`,
+          description: `${participantName} parou de compartilhar a tela`,
         });
       }
     });
@@ -125,7 +134,7 @@ export function useAgoraEventHandlers(
           return newParticipants;
         });
         
-        // Show toast notification
+        // Show toast notification to all remaining users
         toast({
           title: "Usuário saiu",
           description: `${userName} saiu da chamada`,
