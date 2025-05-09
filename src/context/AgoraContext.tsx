@@ -313,7 +313,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Fix the refreshParticipants function to return a Promise<void>
+  // Fix the refreshParticipants function to explicitly return a Promise<void>
   const refreshParticipants = async (): Promise<void> => {
     setParticipantsLastUpdated(Date.now());
     if (agoraState.channelName) {
