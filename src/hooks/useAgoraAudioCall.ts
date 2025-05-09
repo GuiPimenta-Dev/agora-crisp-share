@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
@@ -35,10 +36,11 @@ export function useAgoraAudioCall(
       console.log("Creating microphone track, audioEnabled:", audioEnabled);
       const localAudioTrack = await createMicrophoneAudioTrack();
       
-      // IMPORTANT: Always enable the track before publishing to avoid TRACK_IS_DISABLED error
-      localAudioTrack.setEnabled(true);
+      // IMPORTANT: Set muted state directly instead of using setEnabled
+      // We must use setMuted(true) instead of setEnabled(false) to avoid the TRACK_STATE_UNREACHABLE error
+      localAudioTrack.setMuted(!audioEnabled);
       
-      console.log("Track created and enabled, joining channel:", channelName);
+      console.log("Track created and muted, joining channel:", channelName);
       const joined = await joinChannel(
         agoraState.client,
         channelName,
@@ -121,14 +123,14 @@ export function useAgoraAudioCall(
   const toggleMute = () => {
     if (!agoraState.localAudioTrack) return;
     
-    const newMuteState = !agoraState.localAudioTrack.enabled;
-    
-    agoraState.localAudioTrack.setEnabled(newMuteState);
-    setIsMuted(!newMuteState);
+    // IMPORTANT: Use setMuted instead of setEnabled to avoid the TRACK_STATE_UNREACHABLE error
+    const currentMuted = agoraState.localAudioTrack.muted;
+    agoraState.localAudioTrack.setMuted(!currentMuted);
+    setIsMuted(!currentMuted);
     
     toast({
-      title: newMuteState ? "Microfone ativado" : "Microfone silenciado",
-      description: newMuteState 
+      title: !currentMuted ? "Microfone ativado" : "Microfone silenciado",
+      description: !currentMuted 
         ? "Os outros participantes podem ouvir você agora" 
         : "Os outros participantes não podem ouvir você",
     });

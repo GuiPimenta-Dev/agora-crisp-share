@@ -42,7 +42,7 @@ export function usePresenceRegistration(
             name: displayName,
             avatar: avatarUrl,
             role: currentUser.role,
-            audio_enabled: !agoraState.localAudioTrack?.muted,
+            audio_enabled: agoraState.localAudioTrack ? !agoraState.localAudioTrack.muted : false,
             screen_sharing: false // Initialize with no screen sharing
           }, { onConflict: 'meeting_id,user_id' });
           
