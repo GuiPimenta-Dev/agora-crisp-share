@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAgora } from "@/context/AgoraContext";
-import { Loader2, Copy, Link, Check } from "lucide-react";
+import { Loader2, Copy, Link, Check, MonitorPlay } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { getChannelFromUrl } from "@/lib/tokenGenerator";
 
@@ -70,14 +70,22 @@ const MeetingJoin = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-b from-blue-50 to-blue-100">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader>
+    <div className="flex items-center justify-center min-h-screen px-4">
+      <div className="absolute inset-0 z-[-1] opacity-20">
+        <div className="absolute inset-0 bg-gradient-to-tr from-black via-black to-transparent" />
+      </div>
+      
+      <Card className="w-full max-w-md glass-card intense-shadow">
+        <div className="absolute inset-x-0 top-0 h-1 sunset-gradient rounded-t-lg" />
+        
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-3xl font-bold text-center sunset-text">SUNSET</CardTitle>
           <CardTitle className="text-2xl font-bold text-center">Join Audio Meeting</CardTitle>
-          <CardDescription className="text-center">
+          <CardDescription className="text-center text-muted-foreground">
             Connect with high-quality audio and screen sharing
           </CardDescription>
         </CardHeader>
+        
         <CardContent>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -90,7 +98,7 @@ const MeetingJoin = () => {
                   placeholder="Enter meeting ID"
                   value={channelName}
                   onChange={(e) => setChannelName(e.target.value)}
-                  className="w-full"
+                  className="w-full bg-secondary/50 border-secondary glowing-border"
                 />
               </div>
             </div>
@@ -99,16 +107,16 @@ const MeetingJoin = () => {
               <div className="pt-2">
                 <Button 
                   variant="outline" 
-                  className="w-full flex items-center justify-center gap-2"
+                  className="w-full flex items-center justify-center gap-2 border-primary/30 hover:bg-secondary/80"
                   onClick={copyLinkToClipboard}
                 >
                   {linkCopied ? (
                     <>
-                      <Check className="h-4 w-4" /> Copied!
+                      <Check className="h-4 w-4 text-primary" /> Copied!
                     </>
                   ) : (
                     <>
-                      <Link className="h-4 w-4" /> Generate shareable link
+                      <Link className="h-4 w-4 text-primary" /> Generate shareable link
                     </>
                   )}
                 </Button>
@@ -116,20 +124,27 @@ const MeetingJoin = () => {
             )}
           </div>
         </CardContent>
-        <CardFooter>
+        
+        <CardFooter className="flex flex-col space-y-4">
           <Button 
-            className="w-full" 
+            className="w-full sunset-button glow"
             onClick={() => handleJoin()} 
             disabled={isJoining || !channelName.trim()}
           >
             {isJoining ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Joining...
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Joining...
               </>
             ) : (
-              "Join Meeting"
+              <>
+                <MonitorPlay className="mr-2 h-5 w-5" /> Join Meeting
+              </>
             )}
           </Button>
+          
+          <p className="text-xs text-center text-muted-foreground">
+            By joining, you agree to our Terms of Service and Privacy Policy
+          </p>
         </CardFooter>
       </Card>
     </div>
