@@ -8,6 +8,7 @@ import { useAgoraScreenShare } from "@/hooks/useAgoraScreenShare";
 import { useAgoraEventHandlers } from "@/hooks/useAgoraEventHandlers";
 import { useAgoraRecording } from "@/hooks/useAgoraRecording";
 import { generateShareableLink } from "@/lib/tokenGenerator";
+import { useToast } from "@/hooks/use-toast";
 
 const AgoraContext = createContext<AgoraContextType | undefined>(undefined);
 
@@ -19,7 +20,7 @@ export const useAgora = () => {
   return context;
 };
 
-export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
+export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // State management
   const [agoraState, setAgoraState] = useState<AgoraState>({
     client: undefined,
@@ -34,6 +35,7 @@ export const AgoraProvider = ({ children }: { children: React.ReactNode }) => {
   const [isMuted, setIsMuted] = useState(false);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const clientRef = useRef<IAgoraRTCClient | undefined>();
+  const { toast } = useToast();
 
   // Initialize hooks with our shared state
   const { joinAudioCall, leaveAudioCall, toggleMute } = useAgoraAudioCall(

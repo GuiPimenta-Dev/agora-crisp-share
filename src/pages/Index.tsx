@@ -1,9 +1,10 @@
 
 import React from "react";
-import { AgoraProvider } from "@/context/AgoraContext";
+import { AgoraProvider, useAgora } from "@/context/AgoraContext";
 import MeetingJoin from "@/components/MeetingJoin";
 import MeetingRoom from "@/components/MeetingRoom";
 
+// Import useAgora here to avoid the "useAgora must be used within an AgoraProvider" error
 const MeetingContainer: React.FC = () => {
   const { agoraState } = useAgora();
   
@@ -13,9 +14,6 @@ const MeetingContainer: React.FC = () => {
     </div>
   );
 };
-
-// Import useAgora here to avoid the "useAgora must be used within an AgoraProvider" error
-import { useAgora } from "@/context/AgoraContext";
 
 const Index = () => {
   return (
