@@ -59,7 +59,7 @@ export function useFetchParticipants(meetingId?: string) {
           // Combine participant data with profile data
           const combinedParticipants: Record<string, ParticipantWithTimestamp> = {};
           
-          participantsData.forEach(participant => {
+          participantsData.forEach((participant: any) => {
             const profile = profilesMap.get(participant.user_id);
             
             combinedParticipants[participant.user_id] = {
@@ -68,7 +68,7 @@ export function useFetchParticipants(meetingId?: string) {
               avatar: profile?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(participant.name)}&background=random`,
               role: participant.role as any,
               audioEnabled: participant.audio_enabled,
-              audioMuted: participant.audio_muted,
+              audioMuted: participant.audio_muted !== undefined ? participant.audio_muted : !participant.audio_enabled,
               screenSharing: participant.screen_sharing || false,
               joinedAt: participant.created_at
             };

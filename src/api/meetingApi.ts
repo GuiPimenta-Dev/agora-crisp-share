@@ -164,14 +164,14 @@ export const apiGetParticipants = async (meetingId: string) => {
     
     // Convert array to record object as expected by the application
     const participants: Record<string, MeetingUser> = {};
-    data.forEach(participant => {
+    data.forEach((participant: any) => {
       participants[participant.user_id] = {
         id: participant.user_id,
         name: participant.name,
         avatar: participant.avatar,
         role: participant.role as Role,
         audioEnabled: participant.audio_enabled,
-        audioMuted: participant.audio_muted,
+        audioMuted: participant.audio_muted || !participant.audio_enabled, // Fallback for older records
         screenSharing: participant.screen_sharing
       };
     });
