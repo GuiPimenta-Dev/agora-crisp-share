@@ -1,1 +1,10 @@
+
 project_id = "xkixwoanqxdztjnbzjmg"
+theme = ""
+remove_unused_static_crs = true
+
+[api]
+url = "https://xkixwoanqxdztjnbzjmg.supabase.co"
+
+[functions.enable-realtime]
+verify_jwt = true

@@ -51,14 +51,24 @@ export function useAgoraPresenceSync(
         // Small delay to ensure connection is ready
         await new Promise(resolve => setTimeout(resolve, 500));
         
+        // Check if profile exists
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("summoner, name, avatar")
+          .eq("id", currentUser.id)
+          .single();
+          
+        const displayName = profileData?.summoner || profileData?.name || currentUser.name;
+        const avatarUrl = profileData?.avatar || currentUser.avatar;
+        
         // Update the meeting_participants table in Supabase to add ourselves
         const { error } = await supabase
           .from("meeting_participants")
           .upsert({
             meeting_id: channelName,
             user_id: currentUser.id,
-            name: currentUser.name,
-            avatar: currentUser.avatar,
+            name: displayName,
+            avatar: avatarUrl,
             role: currentUser.role,
             audio_enabled: !agoraState.localAudioTrack?.muted,
             screen_sharing: false // Initialize with no screen sharing
@@ -67,7 +77,7 @@ export function useAgoraPresenceSync(
         if (error) {
           console.error("Failed to register presence in Supabase:", error);
         } else {
-          console.log(`Successfully registered presence for ${currentUser.name} in channel ${channelName}`);
+          console.log(`Successfully registered presence for ${displayName} in channel ${channelName}`);
         }
       } catch (error) {
         console.error("Failed to initialize participant sync:", error);
@@ -104,7 +114,7 @@ export function useAgoraPresenceSync(
         });
       }
     };
-  }, [currentUser, agoraState.joinState, channelName]);
+  }, [currentUser, agoraState.joinState, channelName, agoraState.localAudioTrack?.muted]);
 
   // Update screen sharing status
   useEffect(() => {

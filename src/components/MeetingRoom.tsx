@@ -17,7 +17,7 @@ import {
 
 const MeetingRoom: React.FC = () => {
   const { 
-    agoraState: { remoteUsers, screenShareUserId, isRecording, channelName }, 
+    agoraState: { isRecording, channelName }, 
     isScreenSharing,
     remoteScreenShareUser,
     downloadRecording
@@ -87,10 +87,7 @@ const MeetingRoom: React.FC = () => {
           
           {/* Sidebar - Participants */}
           <div className="lg:col-span-1 h-full">
-            <ParticipantsList 
-              remoteUsers={remoteUsers} 
-              screenShareUserId={screenShareUserId ? screenShareUserId.toString() : undefined} 
-            />
+            <ParticipantsList meetingId={channelName} />
           </div>
         </div>
       </div>
