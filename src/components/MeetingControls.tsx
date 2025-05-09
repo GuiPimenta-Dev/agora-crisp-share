@@ -92,12 +92,23 @@ const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
 
   const handleToggleScreenShare = async () => {
     if (isScreenSharing) {
+      // First update database
       await updateState("screen_sharing", false);
+      // Then stop screen share locally
       stopScreenShare();
     } else {
-      const success = await startScreenShare();
-      if (success) {
+      try {
+        // First start screen share
+        await startScreenShare();
+        // If successful, update database
         await updateState("screen_sharing", true);
+      } catch (error) {
+        console.error("Screen share failed:", error);
+        toast({
+          title: "Screen Sharing Failed",
+          description: error instanceof Error ? error.message : "Could not start screen sharing",
+          variant: "destructive"
+        });
       }
     }
   };
