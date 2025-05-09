@@ -26,6 +26,18 @@ export function usePresenceRegistration(
         // Small delay to ensure connection is ready
         await new Promise(resolve => setTimeout(resolve, 500));
         
+        // Check if the current session is valid BEFORE attempting database operations
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (!sessionData.session) {
+          console.warn("No active Supabase session, participant sync will fail");
+          toast({
+            title: "Authentication Required",
+            description: "Please login to enable participant synchronization",
+            variant: "destructive"
+          });
+          return; // Exit early if no session
+        }
+        
         // Check if profile exists
         const { data: profileData, error: profileError } = await supabase
           .from("profiles")
@@ -45,18 +57,6 @@ export function usePresenceRegistration(
           
         const displayName = profileData?.summoner || profileData?.name || currentUser.name;
         const avatarUrl = profileData?.avatar || currentUser.avatar;
-        
-        // Check if the current session is valid
-        const { data: sessionData } = await supabase.auth.getSession();
-        if (!sessionData.session) {
-          console.warn("No active Supabase session, participant sync will fail");
-          toast({
-            title: "Warning",
-            description: "Not logged in to Supabase - participant sync disabled",
-            // Change "warning" to "destructive" since it's a supported variant
-            variant: "destructive"
-          });
-        }
         
         // Update the meeting_participants table in Supabase to add ourselves
         const { error } = await supabase
@@ -78,7 +78,7 @@ export function usePresenceRegistration(
           if (error.code === "401" || error.code === "PGRST116") {
             toast({
               title: "Authentication Error",
-              description: "Not authenticated with Supabase. Participant sync unavailable.",
+              description: "Please login to Supabase to enable participant synchronization",
               variant: "destructive"
             });
           } else {
