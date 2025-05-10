@@ -87,7 +87,8 @@ export function useParticipantsRealtime(
       const duplicateThreshold = isAudioUpdate ? 300 : 1500;
       
       // Skip if this is a duplicate update but with the shorter threshold for audio changes
-      if (notifications.isDuplicateUpdate(userId, duplicateThreshold) && !isAudioUpdate) {
+      // Fixed: Now only passing one argument as expected by isDuplicateUpdate 
+      if (notifications.isDuplicateUpdate(userId) && !isAudioUpdate) {
         console.log(`Skipping duplicate update for user ${userId}`);
         return;
       }
@@ -121,7 +122,7 @@ export function useParticipantsRealtime(
         });
         
         if (isAudioUpdate) {
-          // Record this field update to avoid duplicate processing
+          // Fixed: Now calling trackFieldUpdate which has been added to useParticipantNotifications
           notifications.trackFieldUpdate(userId, hasAudioMutedChanged ? 'audio_muted' : 'audio_enabled');
         }
       }
@@ -140,7 +141,7 @@ export function useParticipantsRealtime(
       const isLikelyStatusUpdate = now - lastStatusUpdate < 3000;
       
       if (!isSelf && !isLikelyStatusUpdate) {
-        // Fix: Access properties safely with optional chaining and nullish coalescing
+        // Access properties safely with optional chaining and nullish coalescing
         const participantName = deletedParticipant?.name ?? 'Unknown user';
         notifications.showLeaveNotification(userId, participantName);
       }

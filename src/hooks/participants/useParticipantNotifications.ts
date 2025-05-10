@@ -34,23 +34,28 @@ export function useParticipantNotifications() {
       return true;
     }
     
+    return false;
+  };
+  
+  // Function to track a field update
+  const trackFieldUpdate = (userId: string, field: string): void => {
+    const now = Date.now();
     // Record this update time for the specific field
     if (!lastFieldUpdateRef.current[userId]) {
       lastFieldUpdateRef.current[userId] = {};
     }
     lastFieldUpdateRef.current[userId][field] = now;
-    return false;
   };
   
   // Function to check if this might be a duplicate update
-  const isDuplicateUpdate = (userId: string): boolean => {
+  const isDuplicateUpdate = (userId: string, threshold: number = 1500): boolean => {
     const now = Date.now();
     const lastUpdate = statusUpdateTimestampRef.current[userId] || 0;
     const timeDiff = now - lastUpdate;
     
-    // If we got another update for the same user in less than 3000ms, 
+    // If we got another update for the same user in less than threshold ms, 
     // consider it a potential duplicate
-    if (timeDiff < 3000) {
+    if (timeDiff < threshold) {
       console.log(`Potential duplicate update for user ${userId} (${timeDiff}ms since last update)`);
       return true;
     }
@@ -118,6 +123,7 @@ export function useParticipantNotifications() {
 
   return {
     hasRecentFieldUpdate,
+    trackFieldUpdate, // Added this export to fix the error
     isDuplicateUpdate,
     shouldShowNotification,
     showJoinNotification,
