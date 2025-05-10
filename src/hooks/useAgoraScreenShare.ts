@@ -44,10 +44,14 @@ export function useAgoraScreenShare(
     }
     
     try {
+      console.log("Creating screen video track...");
       const screenTrack = await createScreenVideoTrack();
+      console.log("Screen track created successfully");
       
       // Publicar o track de vídeo
+      console.log("Publishing screen track to Agora...");
       await agoraState.client.publish(screenTrack);
+      console.log("Screen track published successfully");
       
       // Update the AgoraState with the current user's ID as the screen sharer
       setAgoraState(prev => ({
@@ -60,6 +64,7 @@ export function useAgoraScreenShare(
       
       // Handle screen share ended by user through browser UI
       screenTrack.on("track-ended", async () => {
+        console.log("Track ended by browser UI");
         await stopScreenShare();
       });
       
@@ -81,12 +86,15 @@ export function useAgoraScreenShare(
     if (!agoraState.client || !agoraState.screenVideoTrack) return;
     
     try {
+      console.log("Stopping screen share...");
       // Importante: fazer o unpublish antes de parar o track
       await agoraState.client.unpublish(agoraState.screenVideoTrack);
+      console.log("Screen track unpublished successfully");
       
       // Agora podemos parar e fechar o track com segurança
       agoraState.screenVideoTrack.stop();
       agoraState.screenVideoTrack.close();
+      console.log("Screen track stopped and closed");
       
       // Update the AgoraState to remove screen sharing info
       setAgoraState(prev => ({

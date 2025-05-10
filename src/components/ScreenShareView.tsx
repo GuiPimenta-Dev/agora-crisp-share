@@ -4,7 +4,7 @@ import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { Monitor, Share2, Shield, AlertCircle, Maximize2, Minimize2 } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 
 interface ScreenShareViewProps {
@@ -24,11 +24,13 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Handle remote screen share
+  // Handle remote screen share - ensure ALL users can see shared screens
   useEffect(() => {
     if (remoteScreenUser && remoteScreenUser.videoTrack && remoteVideoRef.current) {
+      console.log("Playing remote screen share in ScreenShareView");
       remoteScreenUser.videoTrack.play(remoteVideoRef.current);
       return () => {
+        console.log("Stopping remote screen share in cleanup");
         remoteScreenUser.videoTrack?.stop();
       };
     }
@@ -37,17 +39,19 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   // Handle local screen share
   useEffect(() => {
     if (localSharing && agoraState.screenVideoTrack && localVideoRef.current) {
+      console.log("Playing local screen share in ScreenShareView");
       agoraState.screenVideoTrack.play(localVideoRef.current);
       return () => {
         // Cleanup when unmounting only
         if (agoraState.screenVideoTrack && !localSharing) {
+          console.log("Stopping local screen share in cleanup");
           agoraState.screenVideoTrack.stop();
         }
       };
     }
   }, [localSharing, agoraState.screenVideoTrack]);
   
-  const isScreenBeingShared = localSharing || remoteScreenUser;
+  const isScreenBeingShared = localSharing || !!remoteScreenUser;
   const isOtherUserSharing = !!remoteScreenUser;
   
   // Check if current user can share screen (coach or student)

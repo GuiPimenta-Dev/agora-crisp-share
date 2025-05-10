@@ -23,7 +23,7 @@ export function useAgoraScreenShareEvents(
     const handleUserScreenPublished = async (user: IAgoraRTCRemoteUser, mediaType: string) => {
       if (mediaType !== "video") return;
       
-      console.log("Remote user published video track - attempting to subscribe");
+      console.log("Remote user published video track (screen share) - attempting to subscribe");
       
       try {
         // Subscribe to the remote user's video track (screen share)
@@ -94,7 +94,6 @@ export function useAgoraScreenShareEvents(
     client.on("user-published", handleUserScreenPublished);
     client.on("user-unpublished", handleUserScreenUnpublished);
 
-    // Clean up
     return () => {
       client.off("user-published", handleUserScreenPublished);
       client.off("user-unpublished", handleUserScreenUnpublished);
