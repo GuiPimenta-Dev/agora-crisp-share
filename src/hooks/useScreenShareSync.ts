@@ -1,6 +1,6 @@
 
 // This file is kept to avoid breaking imports but no longer contains actual functionality
 export function useScreenShareSync() {
-  // Empty implementation - we've removed screen sharing synchronization functionality
-  console.log("Screen share sync has been deprecated");
+  // Empty implementation - screen share synchronization happens through Agora's real-time events
+  // All users, including listeners, can see shared screens via Agora's native mechanisms
 }

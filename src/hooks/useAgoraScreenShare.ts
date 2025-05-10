@@ -5,7 +5,6 @@ import {
   createScreenVideoTrack
 } from "@/lib/agoraUtils";
 import { AgoraState } from "@/types/agora";
-import { IAgoraRTCClient } from "agora-rtc-sdk-ng";
 import { MeetingUser } from "@/types/meeting";
 
 export function useAgoraScreenShare(
@@ -29,6 +28,16 @@ export function useAgoraScreenShare(
       toast({
         title: "Não é possível compartilhar",
         description: "Outro participante já está compartilhando a tela",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Verificar se o usuário tem permissões para compartilhar tela
+    if (currentUser && currentUser.role !== 'coach' && currentUser.role !== 'student') {
+      toast({
+        title: "Permissão negada",
+        description: "Apenas professores e alunos podem compartilhar a tela",
         variant: "destructive",
       });
       return;

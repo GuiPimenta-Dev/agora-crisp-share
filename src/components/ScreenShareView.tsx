@@ -16,7 +16,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   localSharing,
   remoteScreenUser,
 }) => {
-  const { startScreenShare, stopScreenShare, agoraState } = useAgora();
+  const { startScreenShare, stopScreenShare, agoraState, currentUser } = useAgora();
   const { toast } = useToast();
   const remoteVideoRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLDivElement>(null);
@@ -49,9 +49,12 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   
   const isScreenBeingShared = localSharing || remoteScreenUser;
   const isOtherUserSharing = !!remoteScreenUser;
+  
+  // Check if current user can share screen (coach or student)
+  const canShareScreen = currentUser?.role === "coach" || currentUser?.role === "student";
 
   const handleScreenShare = async () => {
-    if (isLoading || isOtherUserSharing) return; // Prevent when loading or other is sharing
+    if (isLoading || isOtherUserSharing || !canShareScreen) return;
     
     setIsLoading(true);
     try {
@@ -145,36 +148,40 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
               <p className="text-blue-200 max-w-md">
                 {isOtherUserSharing 
                   ? "Outro participante já está compartilhando a tela. Aguarde ele finalizar para compartilhar a sua."
-                  : "Clique no botão abaixo para compartilhar sua tela com ultra alta resolução (até 4K/2160p)"}
+                  : canShareScreen 
+                    ? "Clique no botão abaixo para compartilhar sua tela com ultra alta resolução (até 4K/2160p)"
+                    : "Um apresentador ou aluno irá compartilhar uma tela em breve."}
               </p>
               
-              <Button
-                className="mt-6"
-                onClick={localSharing ? stopScreenShare : handleScreenShare}
-                disabled={isLoading || isOtherUserSharing}
-              >
-                {isLoading ? (
-                  <>
-                    <AlertCircle className="h-4 w-4 mr-2 animate-pulse" />
-                    Aguarde...
-                  </>
-                ) : isOtherUserSharing ? (
-                  <>
-                    <AlertCircle className="h-4 w-4 mr-2" />
-                    Outro usuário compartilhando
-                  </>
-                ) : localSharing ? (
-                  <>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Parar compartilhamento
-                  </>
-                ) : (
-                  <>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Compartilhar sua tela
-                  </>
-                )}
-              </Button>
+              {canShareScreen && (
+                <Button
+                  className="mt-6"
+                  onClick={localSharing ? stopScreenShare : handleScreenShare}
+                  disabled={isLoading || isOtherUserSharing}
+                >
+                  {isLoading ? (
+                    <>
+                      <AlertCircle className="h-4 w-4 mr-2 animate-pulse" />
+                      Aguarde...
+                    </>
+                  ) : isOtherUserSharing ? (
+                    <>
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      Outro usuário compartilhando
+                    </>
+                  ) : localSharing ? (
+                    <>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Parar compartilhamento
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Compartilhar sua tela
+                    </>
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </div>
