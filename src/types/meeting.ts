@@ -4,6 +4,7 @@ export type Role = "coach" | "student" | "listener";
 export interface MeetingUser {
   id: string;
   name: string;
+  summoner?: string; // Add summoner field
   avatar?: string;
   role: Role;
   audioEnabled?: boolean;

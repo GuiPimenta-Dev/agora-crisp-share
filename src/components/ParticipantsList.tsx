@@ -1,6 +1,7 @@
+
 import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Mic, MicOff, Users, MonitorSmartphone, Crown, Gamepad2, User } from "lucide-react";
+import { Users, MonitorSmartphone, Crown, Gamepad2, User } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
@@ -109,9 +110,6 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
           {sortedParticipants.map((participant) => {
             const isCurrentUser = currentUser && participant.id === currentUser.id;
             
-            // IMPORTANT: Use the audioMuted property directly instead of checking audioEnabled
-            const isAudioMuted = participant.audioMuted === undefined ? true : participant.audioMuted;
-            
             return (
               <div 
                 key={participant.id} 
@@ -122,17 +120,18 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
                 }`}
               >
                 <Avatar className="h-8 w-8">
-                  <AvatarImage src={participant.avatar} alt={participant.name} />
+                  <AvatarImage src={participant.avatar} alt={participant.summoner || participant.name} />
                   <AvatarFallback className={`text-xs ${
                     isCurrentUser ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
                   }`}>
-                    {getInitials(participant.name)}
+                    {getInitials(participant.summoner || participant.name)}
                   </AvatarFallback>
                 </Avatar>
                 
                 <div className="flex-1 flex flex-col min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-medium truncate">{participant.name}</span>
+                    {/* Use summoner name instead of name */}
+                    <span className="font-medium truncate">{participant.summoner || participant.name}</span>
                     {isCurrentUser && (
                       <span className="text-xs text-muted-foreground">(you)</span>
                     )}
@@ -155,11 +154,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
                   {participant.screenSharing && (
                     <MonitorSmartphone className="h-4 w-4 text-blue-500" />
                   )}
-                  {!isAudioMuted ? (
-                    <Mic className="h-4 w-4 text-primary" />
-                  ) : (
-                    <MicOff className="h-4 w-4 text-muted-foreground" />
-                  )}
+                  {/* Mic icon removed */}
                 </div>
               </div>
             );
