@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,14 +8,9 @@ export function useScreenRecording() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingStartTimeRef = useRef<Date | null>(null);
-  const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
 
-  const startRecording = async (meetingId?: string) => {
+  const startRecording = async () => {
     recordedChunksRef.current = [];
-    // Armazenar o ID da reunião para uso posterior ao salvar a gravação
-    if (meetingId) {
-      setCurrentMeetingId(meetingId);
-    }
     
     try {
       // Get the current tab's ID - this ensures we're recording the current meeting tab
@@ -91,6 +85,7 @@ export function useScreenRecording() {
           }
         };
       } catch (audioError) {
+        // If we can't get audio, just use the screen capture
         console.warn("Could not capture system audio, recording screen only:", audioError);
         
         // Create MediaRecorder instance with just screen
@@ -137,18 +132,46 @@ export function useScreenRecording() {
     }
   };
   
-  // Updated to use the bucket we've already created via SQL migration
+  // Ensure the storage bucket exists
   const ensureBucketExists = async () => {
     try {
-      // Simply check if we can access the bucket
-      const { data: objects, error } = await supabase.storage
-        .from('meeting-recordings')
-        .list('', { limit: 1 });
+      // Check if bucket exists using storage API
+      const { data: bucketList, error } = await supabase.storage.listBuckets();
       
+      // If we can't check buckets due to permissions, just try the upload directly
       if (error) {
-        console.warn("Error checking bucket: ", error);
-        // We'll still attempt to upload anyway, as the bucket may exist
-        // but the user might not have list permissions
+        console.warn("Could not check if bucket exists, will try upload directly:", error);
+        return;
+      }
+      
+      // Check if the bucket exists in the list
+      const bucketExists = bucketList && Array.isArray(bucketList) && 
+        bucketList.some(bucket => bucket.name === 'meeting-recordings');
+      
+      if (!bucketExists) {
+        // Try to create the bucket if it doesn't exist
+        try {
+          const { data, error: createError } = await supabase.storage.createBucket('meeting-recordings', {
+            public: true, // Make the bucket public
+            fileSizeLimit: 100000000 // 100MB limit
+          });
+          
+          // Create RLS policy that allows public access
+          const { error: policyError } = await supabase.rpc('create_storage_policy', {
+            bucket_name: 'meeting-recordings',
+            policy_name: 'Public Access',
+            definition: 'true', // Always allow access
+            policy_operation: 'SELECT'
+          });
+          
+          if (createError) {
+            console.warn("Error creating bucket:", createError);
+          } else {
+            console.log("Created 'meeting-recordings' bucket");
+          }
+        } catch (createError) {
+          console.warn("Error creating bucket:", createError);
+        }
       }
     } catch (checkError) {
       console.warn("Error checking bucket existence:", checkError);
@@ -168,35 +191,6 @@ export function useScreenRecording() {
   // Helper function to clean up media tracks
   const stopTracks = (stream: MediaStream) => {
     stream.getTracks().forEach(track => track.stop());
-  };
-  
-  // Função para atualizar o booking com a URL da gravação
-  const updateBookingWithRecordingUrl = async (meetingId: string | null, recordingUrl: string) => {
-    if (!meetingId) {
-      console.warn("No meeting ID provided to update booking with recording URL");
-      return false;
-    }
-
-    try {
-      console.log(`Updating booking ${meetingId} with recording URL: ${recordingUrl}`);
-      
-      // Atualizar a coluna recording_url na tabela bookings
-      const { error } = await supabase
-        .from('bookings')
-        .update({ recording_url: recordingUrl })
-        .eq('id', meetingId);
-      
-      if (error) {
-        console.error("Error updating booking with recording URL:", error);
-        return false;
-      }
-      
-      console.log("Successfully updated booking with recording URL");
-      return true;
-    } catch (error) {
-      console.error("Error updating booking with recording URL:", error);
-      return false;
-    }
   };
   
   // Set up stop handler
@@ -233,7 +227,7 @@ export function useScreenRecording() {
           description: "Saving to cloud storage, please wait...",
         });
         
-        // Make sure the bucket exists (our SQL migration already created it)
+        // Make sure the bucket exists first
         await ensureBucketExists();
         
         // Upload the recording
@@ -246,7 +240,6 @@ export function useScreenRecording() {
           });
         
         if (error) {
-          console.error("Upload error:", error);
           throw error;
         }
         
@@ -255,13 +248,13 @@ export function useScreenRecording() {
           .from('meeting-recordings')
           .getPublicUrl(data.path);
         
-        // Atualizar o booking com a URL da gravação
-        await updateBookingWithRecordingUrl(currentMeetingId, publicUrl);
-        
         toast({
           title: "Recording saved",
           description: "Your screen recording has been saved to cloud storage",
         });
+        
+        // Store the recording URL in the booking table if needed
+        // This part would need to be implemented if the meeting is associated with a booking
         
         // Release resources
         URL.revokeObjectURL(url);
@@ -278,16 +271,15 @@ export function useScreenRecording() {
       } finally {
         setIsRecording(false);
         setIsSaving(false);
-        setCurrentMeetingId(null); // Limpar o ID da reunião atual
       }
     };
   };
   
-  const toggleRecording = (meetingId?: string) => {
+  const toggleRecording = () => {
     if (isRecording) {
       stopRecording();
     } else {
-      startRecording(meetingId);
+      startRecording();
     }
   };
   

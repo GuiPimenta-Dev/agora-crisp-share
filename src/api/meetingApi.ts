@@ -7,36 +7,32 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export const apiCreateMeeting = async (data: CreateMeetingRequest) => {
   try {
-    // Verificar se já existe um booking com este ID
-    const { data: existingBooking } = await supabase
-      .from("bookings")
+    // Check if meeting already exists
+    const { data: existingMeeting } = await supabase
+      .from("meetings")
       .select()
       .eq("id", data.id)
       .single();
       
-    if (existingBooking) {
-      // Booking já existe, apenas retorná-lo
-      return { success: true, meeting: existingBooking };
+    if (existingMeeting) {
+      // Meeting already exists, just return it
+      return { success: true, meeting: existingMeeting };
     }
 
-    // Inserir reunião como um booking
-    const { data: booking, error } = await supabase
-      .from("bookings")
+    // Insert meeting into Supabase
+    const { data: meeting, error } = await supabase
+      .from("meetings")
       .insert({
         id: data.id,
         coach_id: data.coach_id,
-        student_id: data.student_id,
-        status: 'scheduled',
-        date: new Date().toISOString().split('T')[0], // Data atual
-        time: new Date().toTimeString().split(' ')[0], // Hora atual
-        meeting_url: data.id // Usamos o ID como URL da reunião
+        student_id: data.student_id
       })
       .select()
       .single();
     
     if (error) throw error;
     
-    return { success: true, meeting: booking };
+    return { success: true, meeting };
   } catch (error: any) {
     console.error("Failed to create meeting:", error);
     return { success: false, error: error.message };
@@ -53,7 +49,7 @@ export const apiJoinMeeting = async (channelId: string, userId: string): Promise
   channelId?: string;
 }> => {
   try {
-    // Verificar se o usuário existe na tabela profiles
+    // First, verify the user exists in the profiles table
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select()
@@ -65,57 +61,33 @@ export const apiJoinMeeting = async (channelId: string, userId: string): Promise
       return { success: false, error: "User not found in the system. Access denied." };
     }
     
-    // Obter reunião da tabela bookings usando channelId como meeting_url ou id
-    const { data: booking, error: bookingError } = await supabase
-      .from("bookings")
+    // Get meeting from Supabase
+    const { data: meeting, error: meetingError } = await supabase
+      .from("meetings")
       .select()
-      .or(`id.eq.${channelId},meeting_url.eq.${channelId}`)
+      .eq("id", channelId)
       .maybeSingle();
     
-    if (bookingError || !booking) {
-      // Tentar criar um booking se não existir
-      try {
-        const { data: newBooking, error: createError } = await supabase
-          .from("bookings")
-          .insert({
-            id: channelId,
-            coach_id: userId, // Usuário atual se torna coach por padrão
-            student_id: '', // Por enquanto vazio
-            status: 'in_progress',
-            date: new Date().toISOString().split('T')[0], // Data atual
-            time: new Date().toTimeString().split(' ')[0], // Hora atual
-            meeting_url: channelId // Usar ID como URL da reunião
-          })
-          .select()
-          .single();
-          
-        if (createError) {
-          return { success: false, error: `Meeting ${channelId} not found and could not be created` };
-        }
-        
-        // Use o booking recém-criado
-        booking = newBooking;
-      } catch (createError: any) {
-        return { success: false, error: `Meeting ${channelId} not found: ${createError.message}` };
-      }
+    if (meetingError || !meeting) {
+      return { success: false, error: `Meeting ${channelId} not found` };
     }
     
-    // Determinar função e permissões de áudio
+    // Determine role and audio permissions
     let role: Role = "listener";
     let audioEnabled = false;
     let audioMuted = true;
     
-    if (userId === booking.coach_id) {
+    if (userId === meeting.coach_id) {
       role = "coach";
       audioEnabled = true;
       audioMuted = false;
-    } else if (userId === booking.student_id) {
+    } else if (userId === meeting.student_id) {
       role = "student";
       audioEnabled = true;
       audioMuted = false;
     }
     
-    // Criar objeto de usuário usando dados do perfil do Supabase
+    // Create user object using profile data from Supabase
     const user: MeetingUser = {
       id: userId,
       name: profile.name,
@@ -125,9 +97,9 @@ export const apiJoinMeeting = async (channelId: string, userId: string): Promise
       audioMuted
     };
     
-    // Definir dados do participante
+    // Define participant data
     const participantData = {
-      meeting_id: booking.id,
+      meeting_id: channelId,
       user_id: userId,
       name: profile.name,
       avatar: profile.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=random`,
@@ -139,20 +111,20 @@ export const apiJoinMeeting = async (channelId: string, userId: string): Promise
     
     console.log("Adding participant to meeting:", participantData);
     
-    // Adicionar participante à reunião no Supabase
+    // Add participant to the meeting in Supabase
     const { error: participantError } = await supabase
       .from("meeting_participants")
       .upsert(participantData, { onConflict: 'meeting_id,user_id' });
     
     if (participantError) {
       console.error("Failed to add participant:", participantError);
-      // Continue de qualquer forma, pois isso não é crítico
+      // Continue anyway, as this is not critical
     }
     
     return { 
       success: true, 
       user,
-      channelId: booking.id 
+      channelId 
     };
   } catch (error: any) {
     console.error("Failed to join meeting:", error);
@@ -167,7 +139,7 @@ export const apiLeaveMeeting = async (channelId: string, userId: string) => {
   try {
     console.log(`Removing participant ${userId} from meeting ${channelId}`);
     
-    // Remover participante do Supabase
+    // Remove participant from Supabase
     const { error } = await supabase
       .from("meeting_participants")
       .delete()
@@ -175,7 +147,7 @@ export const apiLeaveMeeting = async (channelId: string, userId: string) => {
     
     if (error) {
       console.error("Error removing participant:", error);
-      // Continue de qualquer forma, pois isso não é crítico
+      // Continue anyway as this is not critical
     }
     
     return { success: true };
@@ -201,7 +173,7 @@ export const apiGetParticipants = async (meetingId: string) => {
     
     console.log(`Found ${data?.length || 0} participants`);
     
-    // Converter array para objeto conforme esperado pela aplicação
+    // Convert array to record object as expected by the application
     const participants: Record<string, MeetingUser> = {};
     data?.forEach((participant: any) => {
       participants[participant.user_id] = {
@@ -210,7 +182,7 @@ export const apiGetParticipants = async (meetingId: string) => {
         avatar: participant.avatar,
         role: participant.role as Role,
         audioEnabled: participant.audio_enabled,
-        audioMuted: participant.audio_muted !== undefined ? participant.audio_muted : true, // Garantir que temos um valor
+        audioMuted: participant.audio_muted !== undefined ? participant.audio_muted : true, // Ensure we have a value
         screenSharing: participant.screen_sharing || false
       };
     });
