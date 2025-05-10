@@ -52,11 +52,14 @@ export function useControlsActions() {
     
     try {
       console.log("Toggle mute requested, current state:", isMuted);
-      
-      // Call toggleMute - the sync will happen via the effect in useAudioStatusSync
       toggleMute();
       
-      // We don't need a toast here since useAudioStatusSync already shows one
+      // Local toast notification
+      toast({
+        title: isMuted ? "Microphone Unmuted" : "Microphone Muted",
+        description: isMuted ? "Others can now hear you" : "Others cannot hear you now",
+        duration: 1500
+      });
     } catch (error) {
       console.error("Error toggling mute:", error);
       toast({
