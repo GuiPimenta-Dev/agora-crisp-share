@@ -18,6 +18,7 @@ export function useAgoraAudioCall(
   // Keep track of last update time to throttle rapid state changes
   const lastUpdateTimeRef = useRef<number>(0);
   const pendingMuteStateRef = useRef<boolean | null>(null);
+  const toggleInProgressRef = useRef<boolean>(false);
 
   // Sync UI mute state with track mute state when track changes
   useEffect(() => {
@@ -132,42 +133,62 @@ export function useAgoraAudioCall(
   };
 
   const toggleMute = () => {
-    if (!agoraState.localAudioTrack) return;
+    if (!agoraState.localAudioTrack) {
+      console.log("Cannot toggle mute - no local audio track available");
+      return;
+    }
     
-    // Get the current time to implement throttling
+    // Skip if toggle is already in progress
+    if (toggleInProgressRef.current) {
+      console.log("Toggle mute already in progress, skipping");
+      return;
+    }
+    
+    // Mark toggle as in progress
+    toggleInProgressRef.current = true;
+    
+    // IMPROVED: Reduced throttling to make UI more responsive
     const now = Date.now();
-    if (now - lastUpdateTimeRef.current < 500) {
+    if (now - lastUpdateTimeRef.current < 300) {
       console.log("Throttling rapid mute toggle");
+      toggleInProgressRef.current = false;
       return;
     }
     lastUpdateTimeRef.current = now;
     
-    // Get current muted state
-    const currentMuted = agoraState.localAudioTrack.muted;
-    console.log("Toggling mute state from", currentMuted, "to", !currentMuted);
-    
-    // Set the track muted state
-    agoraState.localAudioTrack.setMuted(!currentMuted);
-    
-    // Update the UI state immediately
-    setIsMuted(!currentMuted);
-    
-    // Force update AgoraState to trigger the useEffect in useAudioStatusSync
-    setAgoraState(prev => ({
-      ...prev,
-      audioMutedState: !currentMuted, // Add this as a trigger property
-    }));
-    
-    // Store this pending state to avoid duplicate notifications
-    pendingMuteStateRef.current = !currentMuted;
-    
-    // Show toast with new state
-    toast({
-      title: !currentMuted ? "Microphone muted" : "Microphone unmuted",
-      description: !currentMuted 
-        ? "Others cannot hear you" 
-        : "Others can now hear you",
-    });
+    try {
+      // Get current muted state
+      const currentMuted = agoraState.localAudioTrack.muted;
+      console.log("Toggling mute state from", currentMuted, "to", !currentMuted);
+      
+      // Set the track muted state
+      agoraState.localAudioTrack.setMuted(!currentMuted);
+      
+      // Update the UI state immediately
+      setIsMuted(!currentMuted);
+      
+      // Force update AgoraState to trigger the useEffect in useAudioStatusSync
+      setAgoraState(prev => ({
+        ...prev,
+        audioMutedState: !currentMuted, // Add this as a trigger property
+      }));
+      
+      // Store this pending state to avoid duplicate notifications
+      pendingMuteStateRef.current = !currentMuted;
+    } catch (error) {
+      console.error("Error toggling mute state:", error);
+      
+      toast({
+        title: "Error",
+        description: "Failed to change microphone state",
+        variant: "destructive",
+      });
+    } finally {
+      // Release the toggle lock after a short delay
+      setTimeout(() => {
+        toggleInProgressRef.current = false;
+      }, 100);
+    }
   };
 
   return {

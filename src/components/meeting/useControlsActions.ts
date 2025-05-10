@@ -1,5 +1,5 @@
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAgora } from "@/context/AgoraContext";
 import { toast } from "@/hooks/use-toast";
 
@@ -19,42 +19,58 @@ export function useControlsActions() {
   // Use refs to prevent rapid state changes
   const lastActionTimeRef = useRef<number>(0);
   const [actionInProgress, setActionInProgress] = useState<boolean>(false);
+  
+  // Track the last mute toggle to avoid UI flickering
+  const lastMuteToggleRef = useRef<number>(0);
+  
+  // Reset action in progress state automatically after timeout
+  useEffect(() => {
+    if (actionInProgress) {
+      const timer = setTimeout(() => {
+        setActionInProgress(false);
+      }, 1500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [actionInProgress]);
 
   const handleToggleMute = async () => {
-    // Prevent rapid clicks - use a shorter cooldown (800ms) for better responsiveness
+    // Get current time for throttling
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 800 || actionInProgress) {
-      console.log("Action cooldown active or action in progress, ignoring click");
+    
+    // Prevent very rapid clicks - reduced to 500ms for better responsiveness
+    if (now - lastMuteToggleRef.current < 500) {
+      console.log("Mute toggle cooldown active, ignoring click");
       return;
     }
     
-    // Update refs to prevent further clicks
-    lastActionTimeRef.current = now;
+    // Update toggle timestamp
+    lastMuteToggleRef.current = now;
+    
+    // Show action in progress briefly for visual feedback
     setActionInProgress(true);
     
     try {
       console.log("Toggle mute requested, current state:", isMuted);
       
-      // Simply call toggleMute - the sync will happen via the effect in useAudioStatusSync
+      // Call toggleMute - the sync will happen via the effect in useAudioStatusSync
       toggleMute();
       
-      // Show feedback toast with nicer language
+      // We don't need a toast here since useAudioStatusSync already shows one
+    } catch (error) {
+      console.error("Error toggling mute:", error);
       toast({
-        title: isMuted ? "Unmuting microphone..." : "Muting microphone...",
-        description: "Updating for all participants..."
+        title: "Error",
+        description: "Could not change microphone state",
+        variant: "destructive"
       });
-    } finally {
-      // Allow new actions after a shorter delay
-      setTimeout(() => {
-        setActionInProgress(false);
-      }, 1000); // Reduced from 3000ms to 1000ms
     }
   };
 
   const handleToggleScreenShare = async () => {
     // Prevent rapid clicks - enforced shorter cooldown
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 1500 || actionInProgress) {
+    if (now - lastActionTimeRef.current < 1000 || actionInProgress) {
       return;
     }
     
@@ -80,7 +96,7 @@ export function useControlsActions() {
       // Allow new actions after a shorter delay
       setTimeout(() => {
         setActionInProgress(false);
-      }, 1500); // Reduced from 3000ms to 1500ms
+      }, 1000); 
     }
   };
 

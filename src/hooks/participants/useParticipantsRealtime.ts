@@ -18,10 +18,11 @@ export function useParticipantsRealtime(
   useEffect(() => {
     if (!channelName || !setParticipants) return;
     
-    // Create a unique channel name to prevent potential conflicts
-    const realtimeChannelName = `meeting-${channelName}-participants-${Date.now()}`;
+    // CRITICAL FIX: Use a consistent channel name pattern that all clients will share for the same meeting
+    // This ensures all participants are subscribed to the same channel for the meeting
+    const realtimeChannelName = `meeting-participants-${channelName}`;
 
-    console.log(`Setting up realtime subscription for participants in ${channelName}`);
+    console.log(`Setting up realtime subscription for participants in ${channelName} on channel ${realtimeChannelName}`);
 
     // Set up realtime subscription for participant changes
     const participantsSubscription = supabase
@@ -74,35 +75,38 @@ export function useParticipantsRealtime(
       updateParticipantData(userId, newParticipant, isSelf);
     }
 
-    // Handle UPDATE event - Optimized to better handle audio status changes
+    // Handle UPDATE event - Improved for audio status changes
     function handleUpdateEvent(updatedParticipant: Record<string, any>, oldParticipant: Record<string, any>) {
       const userId = updatedParticipant.user_id;
       
-      // Less aggressive duplicate filtering specifically for audio related updates
+      // Detect audio-related changes
       const hasAudioEnabledChanged = updatedParticipant.audio_enabled !== oldParticipant.audio_enabled;
       const hasAudioMutedChanged = updatedParticipant.audio_muted !== oldParticipant.audio_muted;
       
-      // Use a shorter cool-down period for audio updates (300ms) vs. other updates (1500ms)
+      // IMPROVED: For audio updates, we bypass most filtering to ensure status is always reflected
       const isAudioUpdate = hasAudioEnabledChanged || hasAudioMutedChanged;
-      const duplicateThreshold = isAudioUpdate ? 300 : 1500;
       
-      // Skip if this is a duplicate update but with the shorter threshold for audio changes
-      // Fixed: Now only passing one argument as expected by isDuplicateUpdate 
-      if (notifications.isDuplicateUpdate(userId) && !isAudioUpdate) {
-        console.log(`Skipping duplicate update for user ${userId}`);
+      // If this is an audio update, process it immediately with minimal filtering
+      // For non-audio updates, still check for duplicates
+      if (!isAudioUpdate && notifications.isDuplicateUpdate(userId)) {
+        console.log(`Skipping duplicate update for non-audio change for user ${userId}`);
         return;
       }
       
       // Log important status changes
-      if (hasAudioEnabledChanged || hasAudioMutedChanged) {
-        console.log(`Audio status change for ${userId}: muted=${updatedParticipant.audio_muted}, enabled=${updatedParticipant.audio_enabled}`);
+      if (isAudioUpdate) {
+        console.log(
+          `Processing AUDIO status change for ${userId}: ` +
+          `muted=${updatedParticipant.audio_muted} (was ${oldParticipant.audio_muted}), ` +
+          `enabled=${updatedParticipant.audio_enabled} (was ${oldParticipant.audio_enabled})`
+        );
       }
       
       const hasScreenSharingChanged = updatedParticipant.screen_sharing !== oldParticipant.screen_sharing;
       
-      // Always process audio status changes, even if recent
+      // Process audio and screen sharing status changes with priority
       if (hasAudioEnabledChanged || hasAudioMutedChanged || hasScreenSharingChanged) {
-        console.log(`Processing audio/screen status update for ${userId}`);
+        console.log(`Updating participant ${userId} with new audio/screen status`);
         
         setParticipants(prev => {
           const existing = (prev[userId] || {}) as MeetingUser;
@@ -122,7 +126,6 @@ export function useParticipantsRealtime(
         });
         
         if (isAudioUpdate) {
-          // Fixed: Now calling trackFieldUpdate which has been added to useParticipantNotifications
           notifications.trackFieldUpdate(userId, hasAudioMutedChanged ? 'audio_muted' : 'audio_enabled');
         }
       }
@@ -130,7 +133,16 @@ export function useParticipantsRealtime(
 
     // Handle DELETE event - Fixed TypeScript errors here
     function handleDeleteEvent(deletedParticipant: Record<string, any>) {
+      if (!deletedParticipant) {
+        console.error("Received DELETE event with null deletedParticipant");
+        return;
+      }
+      
       const userId = deletedParticipant.user_id;
+      if (!userId) {
+        console.error("Received DELETE event with null user_id");
+        return;
+      }
       
       // Don't notify for our own leave
       const isSelf = currentUser && currentUser.id === userId;

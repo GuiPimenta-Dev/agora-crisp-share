@@ -1,5 +1,5 @@
 
-// Re-export all participant-related hooks
-export * from './useParticipantsInitialFetch';
-export * from './useParticipantNotifications';
-export * from './useParticipantsRealtime';
+// Re-export all participant-related hooks for easier imports
+export * from "./useParticipantsInitialFetch";
+export * from "./useParticipantsRealtime";
+export * from "./useParticipantNotifications";
