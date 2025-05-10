@@ -27,11 +27,26 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   // Handle remote screen share - ensure ALL users can see shared screens
   useEffect(() => {
     if (remoteScreenUser && remoteScreenUser.videoTrack && remoteVideoRef.current) {
-      console.log("Playing remote screen share in ScreenShareView");
-      remoteScreenUser.videoTrack.play(remoteVideoRef.current);
+      console.log("Playing remote screen share in ScreenShareView", remoteScreenUser.uid);
+      
+      try {
+        // Make sure container is visible and has dimensions
+        if (remoteVideoRef.current.clientWidth === 0) {
+          console.warn("Remote video container has zero width");
+        }
+        
+        remoteScreenUser.videoTrack.play(remoteVideoRef.current);
+      } catch (error) {
+        console.error("Error playing remote video track:", error);
+      }
+      
       return () => {
         console.log("Stopping remote screen share in cleanup");
-        remoteScreenUser.videoTrack?.stop();
+        try {
+          remoteScreenUser.videoTrack?.stop();
+        } catch (err) {
+          console.error("Error stopping remote track:", err);
+        }
       };
     }
   }, [remoteScreenUser]);
@@ -40,12 +55,22 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   useEffect(() => {
     if (localSharing && agoraState.screenVideoTrack && localVideoRef.current) {
       console.log("Playing local screen share in ScreenShareView");
-      agoraState.screenVideoTrack.play(localVideoRef.current);
+      
+      try {
+        agoraState.screenVideoTrack.play(localVideoRef.current);
+      } catch (error) {
+        console.error("Error playing local screen share:", error);
+      }
+      
       return () => {
         // Cleanup when unmounting only
         if (agoraState.screenVideoTrack && !localSharing) {
           console.log("Stopping local screen share in cleanup");
-          agoraState.screenVideoTrack.stop();
+          try {
+            agoraState.screenVideoTrack.stop();
+          } catch (err) {
+            console.error("Error stopping local track:", err);
+          }
         }
       };
     }

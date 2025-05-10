@@ -1,6 +1,8 @@
 
-// This file is kept to avoid breaking imports but no longer contains actual functionality
+// This is now an empty hook since all screen share functionality happens through Agora events
+// This file is kept to avoid breaking any imports
 export function useScreenShareSync() {
-  // Empty implementation - screen share synchronization happens through Agora's real-time events
+  // We no longer need Supabase synchronization for screen sharing
   // All users, including listeners, can see shared screens via Agora's native mechanisms
+  return {};
 }

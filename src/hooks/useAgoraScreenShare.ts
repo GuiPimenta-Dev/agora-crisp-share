@@ -46,7 +46,11 @@ export function useAgoraScreenShare(
     try {
       console.log("Creating screen video track...");
       const screenTrack = await createScreenVideoTrack();
-      console.log("Screen track created successfully");
+      console.log("Screen track created successfully:", screenTrack);
+      
+      if (!screenTrack) {
+        throw new Error("Failed to create screen track");
+      }
       
       // Publicar o track de vídeo
       console.log("Publishing screen track to Agora...");
@@ -54,10 +58,13 @@ export function useAgoraScreenShare(
       console.log("Screen track published successfully");
       
       // Update the AgoraState with the current user's ID as the screen sharer
+      const userId = currentUser?.id || "unknown";
+      console.log("Setting screen share user ID:", userId);
+      
       setAgoraState(prev => ({
         ...prev,
         screenVideoTrack: screenTrack,
-        screenShareUserId: currentUser?.id, // Use current user ID passed as prop
+        screenShareUserId: userId, // Use current user ID passed as prop
       }));
       
       setIsScreenSharing(true);

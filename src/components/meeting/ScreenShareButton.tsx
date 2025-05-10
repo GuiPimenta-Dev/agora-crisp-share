@@ -24,6 +24,7 @@ const ScreenShareButton: React.FC<ScreenShareButtonProps> = ({
           onClick={onClick}
           className="h-12 w-12 rounded-full"
           disabled={isDisabled}
+          data-active={isScreenSharing}
         >
           {isScreenSharing ? <MonitorX className="h-5 w-5" /> : <Share2 className="h-5 w-5" />}
         </Button>
