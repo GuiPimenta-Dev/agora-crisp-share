@@ -1,3 +1,4 @@
+
 import AgoraRTC, { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
@@ -51,37 +52,42 @@ export const createScreenVideoTrack = async (): Promise<ILocalVideoTrack> => {
             width,
             height,
             frameRate: 30,
-            bitrateMax: 5000 // 5 Mbps para alta qualidade
+            bitrateMax: 8000 // Increased to 8 Mbps for superior quality
           },
-          optimizationMode: "detail", // priorizar detalhes e qualidade
+          optimizationMode: "detail", // prioritize details and quality
           screenSourceType: "screen"
         },
-        "disable" // sem áudio da aba
+        "disable" // no audio from tab
       );
-      console.log(`✅ Compartilhamento iniciado em ${label} @30FPS`);
+      console.log(`✅ Screen sharing started in ${label} @30FPS with 8Mbps bitrate`);
       return track;
     } catch (error) {
-      console.warn(`⚠️ Falha ao iniciar ${label} @30FPS:`, error);
+      console.warn(`⚠️ Failed to start ${label} @30FPS:`, error);
       return null;
     }
   };
 
-  // 1. Tenta em 4K (3840x2160)
-  let track = await tryCreateTrack(3840, 2160, "4K");
+  // 1. Try in 4K (3840x2160) with enhanced bitrate
+  let track = await tryCreateTrack(3840, 2160, "4K Ultra HD");
 
-  // 2. Fallback para 2K (2560x1440)
+  // 2. Fallback to 2K (2560x1440)
   if (!track) {
-    track = await tryCreateTrack(2560, 1440, "2K");
+    track = await tryCreateTrack(2560, 1440, "2K Quad HD");
   }
 
-  // 3. Fallback para 1080p
+  // 3. Fallback to 1080p
   if (!track) {
-    track = await tryCreateTrack(1920, 1080, "1080p");
+    track = await tryCreateTrack(1920, 1080, "1080p Full HD");
   }
 
-  // 4. Se ainda falhar, erro final
+  // 4. If still failing, final fallback to 720p
   if (!track) {
-    throw new Error("❌ Não foi possível iniciar o compartilhamento de tela. Verifique as permissões do navegador ou a resolução suportada.");
+    track = await tryCreateTrack(1280, 720, "720p HD");
+  }
+
+  // 5. If all attempts fail, throw error
+  if (!track) {
+    throw new Error("❌ Could not start screen sharing. Please check browser permissions or supported resolution.");
   }
 
   return track;

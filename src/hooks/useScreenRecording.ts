@@ -1,11 +1,14 @@
 
 import { useState, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export function useScreenRecording() {
   const [isRecording, setIsRecording] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
+  const recordingStartTimeRef = useRef<Date | null>(null);
 
   const startRecording = async () => {
     recordedChunksRef.current = [];
@@ -16,11 +19,16 @@ export function useScreenRecording() {
       
       // Request screen capture with audio from current tab
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
+        video: {
+          displaySurface: "browser", // Prioritize browser tab for recording
+          width: { ideal: 3840 }, // 4K resolution
+          height: { ideal: 2160 },
+          frameRate: { ideal: 30 }
+        },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
-          sampleRate: 44100,
+          sampleRate: 48000, // Higher audio quality
           // Removing the unsupported property that was causing TypeScript errors
         },
         preferCurrentTab: true,
@@ -43,10 +51,11 @@ export function useScreenRecording() {
       
       const combinedStream = new MediaStream(combinedTracks);
       
-      // Create MediaRecorder instance with high quality
+      // Create MediaRecorder instance with higher quality
       const mediaRecorder = new MediaRecorder(combinedStream, {
         mimeType: 'video/webm;codecs=vp9,opus',
-        videoBitsPerSecond: 3000000, // 3 Mbps for good quality
+        videoBitsPerSecond: 8000000, // 8 Mbps for superior quality
+        audioBitsPerSecond: 128000, // 128 kbps audio
       });
       
       // Event handler for data available
@@ -57,42 +66,83 @@ export function useScreenRecording() {
       };
       
       // Event handler for recording stop
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(recordedChunksRef.current, {
-          type: "video/webm"
-        });
+      mediaRecorder.onstop = async () => {
+        setIsSaving(true);
         
-        // Create download link
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        a.href = url;
-        a.download = `screen-recording-${timestamp}.webm`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        
-        // Release resources
-        URL.revokeObjectURL(url);
-        stopTracks(stream);
-        stopTracks(userAudio);
-        audioContext.close();
-        
-        setIsRecording(false);
-        toast({
-          title: "Recording saved",
-          description: "Your screen recording with audio has been downloaded",
-        });
+        try {
+          const blob = new Blob(recordedChunksRef.current, {
+            type: "video/webm"
+          });
+          
+          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+          const filename = `screen-recording-${timestamp}.webm`;
+          
+          // First, offer a direct download as a backup
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          
+          // Then, upload to Supabase storage
+          toast({
+            title: "Uploading recording",
+            description: "Saving to cloud storage, please wait...",
+          });
+          
+          const { data, error } = await supabase.storage
+            .from('meeting-recordings')
+            .upload(filename, blob, {
+              contentType: 'video/webm',
+              cacheControl: '3600'
+            });
+          
+          if (error) {
+            throw error;
+          }
+          
+          // Get public URL for the stored file
+          const { data: { publicUrl } } = supabase.storage
+            .from('meeting-recordings')
+            .getPublicUrl(data.path);
+          
+          toast({
+            title: "Recording saved",
+            description: "Your screen recording has been saved to cloud storage",
+          });
+          
+          // Store the recording URL in the booking table if needed
+          // This part would need to be implemented if the meeting is associated with a booking
+          
+          // Release resources
+          URL.revokeObjectURL(url);
+          stopTracks(stream);
+          stopTracks(userAudio);
+          audioContext.close();
+        } catch (error) {
+          console.error("Error processing recording:", error);
+          toast({
+            title: "Error saving recording",
+            description: "There was a problem saving your recording to cloud storage",
+            variant: "destructive"
+          });
+        } finally {
+          setIsRecording(false);
+          setIsSaving(false);
+        }
       };
       
-      // Start recording
-      mediaRecorder.start(200); // Collect data every 200ms
+      // Start recording with data collection every 200ms
+      mediaRecorder.start(200);
       mediaRecorderRef.current = mediaRecorder;
+      recordingStartTimeRef.current = new Date();
       setIsRecording(true);
       
       toast({
         title: "Recording started",
-        description: "Your screen and audio are now being recorded",
+        description: "Your screen and audio are now being recorded in high quality",
       });
       
       // Setup safety handler for when user cancels via browser UI
@@ -117,7 +167,7 @@ export function useScreenRecording() {
       mediaRecorderRef.current.stop();
       toast({
         title: "Recording stopped",
-        description: "Preparing download...",
+        description: "Preparing download and cloud storage upload...",
       });
     }
   };
@@ -137,6 +187,7 @@ export function useScreenRecording() {
   
   return {
     isRecording,
+    isSaving,
     toggleRecording,
     startRecording,
     stopRecording

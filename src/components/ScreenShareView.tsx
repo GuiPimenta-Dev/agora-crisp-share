@@ -1,7 +1,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
-import { Monitor, Share2, Shield, AlertCircle, Maximize2, Minimize2 } from "lucide-react";
+import { Monitor, Share2, Shield, AlertCircle, Maximize2, Minimize2, Zap } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -23,13 +23,33 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [resolution, setResolution] = useState<string>("Ultra HD");
   
   // Handle remote screen share
   useEffect(() => {
     if (remoteScreenUser && remoteScreenUser.videoTrack && remoteVideoRef.current) {
       remoteScreenUser.videoTrack.play(remoteVideoRef.current);
+      
+      // Try to determine resolution
+      const onStats = (stats: any) => {
+        if (stats.width && stats.height) {
+          const width = stats.width;
+          if (width >= 3840) setResolution("4K Ultra HD");
+          else if (width >= 2560) setResolution("2K Quad HD");
+          else if (width >= 1920) setResolution("Full HD");
+          else setResolution("HD");
+        }
+      };
+      
+      const statsInterval = setInterval(() => {
+        if (remoteScreenUser.videoTrack) {
+          remoteScreenUser.videoTrack.getStats(onStats);
+        }
+      }, 5000);
+      
       return () => {
         remoteScreenUser.videoTrack?.stop();
+        clearInterval(statsInterval);
       };
     }
   }, [remoteScreenUser]);
@@ -38,11 +58,30 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   useEffect(() => {
     if (localSharing && agoraState.screenVideoTrack && localVideoRef.current) {
       agoraState.screenVideoTrack.play(localVideoRef.current);
+      
+      // Try to determine local resolution
+      const onStats = (stats: any) => {
+        if (stats.captureWidth && stats.captureHeight) {
+          const width = stats.captureWidth;
+          if (width >= 3840) setResolution("4K Ultra HD");
+          else if (width >= 2560) setResolution("2K Quad HD");
+          else if (width >= 1920) setResolution("Full HD");
+          else setResolution("HD");
+        }
+      };
+      
+      const statsInterval = setInterval(() => {
+        if (agoraState.screenVideoTrack) {
+          agoraState.screenVideoTrack.getStats(onStats);
+        }
+      }, 5000);
+      
       return () => {
         // Cleanup when unmounting only
         if (agoraState.screenVideoTrack && !localSharing) {
           agoraState.screenVideoTrack.stop();
         }
+        clearInterval(statsInterval);
       };
     }
   }, [localSharing, agoraState.screenVideoTrack]);
@@ -120,12 +159,17 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
           
           <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">
             <Badge variant="secondary" className="bg-blue-600/90 text-white px-3 py-1.5 flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5" />
+              <span>{resolution}</span>
+            </Badge>
+            
+            <Badge variant="secondary" className="bg-blue-900/90 text-white px-3 py-1.5 flex items-center gap-1.5">
               <Shield className="h-3.5 w-3.5" />
-              <span>Ultra HD 4K</span>
+              <span>8 Mbps Ultra Quality</span>
             </Badge>
           </div>
 
-          {/* Botão de maximizar/minimizar - mais destacado para ser facilmente visível */}
+          {/* Maximizar/minimizar button - more prominent */}
           <Button 
             variant="secondary" 
             size="icon"

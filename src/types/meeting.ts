@@ -18,6 +18,7 @@ export interface Meeting {
   coach_id: string;
   student_id: string;
   participants: Record<string, MeetingUser>;
+  recordingUrl?: string; // Add recording URL field
 }
 
 export interface CreateMeetingRequest {

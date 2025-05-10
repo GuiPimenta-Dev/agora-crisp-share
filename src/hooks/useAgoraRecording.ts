@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { AgoraState, RecordingSettings } from "@/types/agora";
 import { generateToken } from "@/lib/tokenGenerator";
 import { MeetingUser } from "@/types/meeting";
+import { supabase } from "@/integrations/supabase/client";
 
 export function useAgoraRecording(
   agoraState: AgoraState,
@@ -12,6 +13,7 @@ export function useAgoraRecording(
 ) {
   const [recordingSettings, setRecordingSettings] = useState<RecordingSettings | null>(null);
   const reminderTimerRef = useRef<number | null>(null);
+  const [recordingUrl, setRecordingUrl] = useState<string | null>(null);
 
   // Cloud recording API endpoints
   const RECORDING_API_URL = "https://api.agora.io/v1/apps/52556fe6809a4624b3227a074c550aca/cloud_recording";
@@ -49,6 +51,49 @@ export function useAgoraRecording(
       }
     };
   }, [currentUser?.role, agoraState.joinState, agoraState.channelName, agoraState.isRecording]);
+
+  // Update booking record with recording URL
+  const updateBookingRecording = async (recordingUrl: string) => {
+    if (!agoraState.channelName) return false;
+    
+    try {
+      // Find the booking associated with this meeting
+      const { data: bookings, error: fetchError } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('meeting_url', agoraState.channelName)
+        .limit(1);
+      
+      if (fetchError) {
+        console.error("Error finding associated booking:", fetchError);
+        return false;
+      }
+      
+      if (bookings && bookings.length > 0) {
+        const bookingId = bookings[0].id;
+        
+        // Update booking with recording URL
+        const { error: updateError } = await supabase
+          .from('bookings')
+          .update({ recording_url: recordingUrl })
+          .eq('id', bookingId);
+          
+        if (updateError) {
+          console.error("Failed to update booking with recording URL:", updateError);
+          return false;
+        }
+        
+        console.log("Successfully updated booking with recording URL");
+        return true;
+      } else {
+        console.log("No associated booking found for this meeting");
+        return false;
+      }
+    } catch (error) {
+      console.error("Error updating booking with recording URL:", error);
+      return false;
+    }
+  };
 
   // Start cloud recording
   const startRecording = async () => {
@@ -121,6 +166,12 @@ export function useAgoraRecording(
       
       // Simulate successful recording stop
       setTimeout(() => {
+        const simulatedUrl = `https://meeting-recordings.example.com/${agoraState.channelName}/${Date.now()}.mp4`;
+        setRecordingUrl(simulatedUrl);
+        
+        // Update the booking with the recording URL
+        updateBookingRecording(simulatedUrl);
+        
         setAgoraState(prev => ({
           ...prev,
           isRecording: false,
@@ -166,22 +217,32 @@ export function useAgoraRecording(
       
       // Simulate download preparation
       setTimeout(() => {
-        // Create a dummy blob to demonstrate downloading
-        const dummyText = "This is a simulated recording file. In a real implementation, this would be the actual recording.";
-        const blob = new Blob([dummyText], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `recording-${agoraState.channelName}-${new Date().toISOString().slice(0,10)}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        toast({
-          title: "Download Started",
-          description: "Your recording download has started.",
-        });
+        if (recordingUrl) {
+          // Provide the real recording URL from Supabase
+          window.open(recordingUrl, '_blank');
+          
+          toast({
+            title: "Download Available",
+            description: "Your recording is now available for download.",
+          });
+        } else {
+          // Create a dummy blob to demonstrate downloading
+          const dummyText = "This is a simulated recording file. In a real implementation, this would be the actual recording.";
+          const blob = new Blob([dummyText], { type: "text/plain" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `recording-${agoraState.channelName}-${new Date().toISOString().slice(0,10)}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          toast({
+            title: "Download Started",
+            description: "Your recording download has started.",
+          });
+        }
       }, 2000);
     } catch (error) {
       console.error("Error downloading recording:", error);
