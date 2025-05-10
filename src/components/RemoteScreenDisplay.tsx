@@ -42,7 +42,9 @@ const RemoteScreenDisplay: React.FC<RemoteScreenDisplayProps> = ({
       
       const statsInterval = setInterval(() => {
         if (remoteScreenUser.videoTrack) {
-          remoteScreenUser.videoTrack.getStats().then(onStats);
+          // Fix: getStats() returns stats object directly, not a Promise
+          const stats = remoteScreenUser.videoTrack.getStats();
+          onStats(stats);
         }
       }, 5000);
       

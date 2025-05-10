@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,6 +132,67 @@ export function useScreenRecording() {
     }
   };
   
+  // Ensure the storage bucket exists
+  const ensureBucketExists = async () => {
+    try {
+      // Check if bucket exists using storage API
+      const { data: bucketList, error } = await supabase.storage.listBuckets();
+      
+      // If we can't check buckets due to permissions, just try the upload directly
+      if (error) {
+        console.warn("Could not check if bucket exists, will try upload directly:", error);
+        return;
+      }
+      
+      // Check if the bucket exists in the list
+      const bucketExists = bucketList && Array.isArray(bucketList) && 
+        bucketList.some(bucket => bucket.name === 'meeting-recordings');
+      
+      if (!bucketExists) {
+        // Try to create the bucket if it doesn't exist
+        try {
+          const { data, error: createError } = await supabase.storage.createBucket('meeting-recordings', {
+            public: true, // Make the bucket public
+            fileSizeLimit: 100000000 // 100MB limit
+          });
+          
+          // Create RLS policy that allows public access
+          const { error: policyError } = await supabase.rpc('create_storage_policy', {
+            bucket_name: 'meeting-recordings',
+            policy_name: 'Public Access',
+            definition: 'true', // Always allow access
+            policy_operation: 'SELECT'
+          });
+          
+          if (createError) {
+            console.warn("Error creating bucket:", createError);
+          } else {
+            console.log("Created 'meeting-recordings' bucket");
+          }
+        } catch (createError) {
+          console.warn("Error creating bucket:", createError);
+        }
+      }
+    } catch (checkError) {
+      console.warn("Error checking bucket existence:", checkError);
+    }
+  };
+  
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      toast({
+        title: "Recording stopped",
+        description: "Preparing download and cloud storage upload...",
+      });
+    }
+  };
+  
+  // Helper function to clean up media tracks
+  const stopTracks = (stream: MediaStream) => {
+    stream.getTracks().forEach(track => track.stop());
+  };
+  
   // Set up stop handler
   const setupStopHandler = (
     mediaRecorder: MediaRecorder, 
@@ -175,7 +235,8 @@ export function useScreenRecording() {
           .from('meeting-recordings')
           .upload(filename, blob, {
             contentType: 'video/webm',
-            cacheControl: '3600'
+            cacheControl: '3600',
+            upsert: true
           });
         
         if (error) {
@@ -212,54 +273,6 @@ export function useScreenRecording() {
         setIsSaving(false);
       }
     };
-  };
-  
-  // Ensure the storage bucket exists
-  const ensureBucketExists = async () => {
-    try {
-      // Check if bucket exists using storage API instead of RPC
-      const { data: bucketList, error } = await supabase.storage.listBuckets();
-      
-      // If we can't check buckets due to permissions, just try the upload directly
-      if (error) {
-        console.warn("Could not check if bucket exists, will try upload directly:", error);
-        return;
-      }
-      
-      // Check if the bucket exists in the list
-      const bucketExists = bucketList && Array.isArray(bucketList) && 
-        bucketList.some(bucket => bucket.name === 'meeting-recordings');
-      
-      if (!bucketExists) {
-        // Try to create the bucket if it doesn't exist
-        try {
-          await supabase.storage.createBucket('meeting-recordings', {
-            public: false,
-            fileSizeLimit: 100000000 // 100MB limit
-          });
-          console.log("Created 'meeting-recordings' bucket");
-        } catch (createError) {
-          console.warn("Error creating bucket:", createError);
-        }
-      }
-    } catch (checkError) {
-      console.warn("Error checking bucket existence:", checkError);
-    }
-  };
-  
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
-      toast({
-        title: "Recording stopped",
-        description: "Preparing download and cloud storage upload...",
-      });
-    }
-  };
-  
-  // Helper function to clean up media tracks
-  const stopTracks = (stream: MediaStream) => {
-    stream.getTracks().forEach(track => track.stop());
   };
   
   const toggleRecording = () => {

@@ -41,7 +41,9 @@ const LocalScreenDisplay: React.FC<LocalScreenDisplayProps> = ({
       
       const statsInterval = setInterval(() => {
         if (agoraState.screenVideoTrack) {
-          agoraState.screenVideoTrack.getStats().then(onStats);
+          // Fix: getStats() returns stats object directly, not a Promise
+          const stats = agoraState.screenVideoTrack.getStats();
+          onStats(stats);
         }
       }, 5000);
       
