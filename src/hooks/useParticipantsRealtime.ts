@@ -8,8 +8,8 @@ import { useParticipantsRealtime as useRealtimeParticipants } from "./participan
  */
 export function useParticipantsRealtime(
   meetingId: string | undefined,
-  setParticipants: React.Dispatch<React.SetStateAction<Record<string, MeetingUser & { joinedAt: string }>>>
+  setParticipants: React.Dispatch<React.SetStateAction<Record<string, MeetingUser>>>
 ) {
-  // Simply forward to our refactored hook
-  useRealtimeParticipants(meetingId, setParticipants);
+  // Simply forward to our refactored hook with the proper signature
+  return useRealtimeParticipants(meetingId, setParticipants);
 }

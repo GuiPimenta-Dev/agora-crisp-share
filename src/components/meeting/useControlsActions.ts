@@ -21,9 +21,9 @@ export function useControlsActions() {
   const [actionInProgress, setActionInProgress] = useState<boolean>(false);
 
   const handleToggleMute = async () => {
-    // Prevent rapid clicks - enforced 3s cooldown
+    // Prevent rapid clicks - use a shorter cooldown (800ms) for better responsiveness
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 3000 || actionInProgress) {
+    if (now - lastActionTimeRef.current < 800 || actionInProgress) {
       console.log("Action cooldown active or action in progress, ignoring click");
       return;
     }
@@ -33,20 +33,28 @@ export function useControlsActions() {
     setActionInProgress(true);
     
     try {
+      console.log("Toggle mute requested, current state:", isMuted);
+      
       // Simply call toggleMute - the sync will happen via the effect in useAudioStatusSync
       toggleMute();
+      
+      // Show feedback toast with nicer language
+      toast({
+        title: isMuted ? "Unmuting microphone..." : "Muting microphone...",
+        description: "Updating for all participants..."
+      });
     } finally {
-      // Allow new actions after a longer delay
+      // Allow new actions after a shorter delay
       setTimeout(() => {
         setActionInProgress(false);
-      }, 3000);
+      }, 1000); // Reduced from 3000ms to 1000ms
     }
   };
 
   const handleToggleScreenShare = async () => {
-    // Prevent rapid clicks - enforced 3s cooldown
+    // Prevent rapid clicks - enforced shorter cooldown
     const now = Date.now();
-    if (now - lastActionTimeRef.current < 3000 || actionInProgress) {
+    if (now - lastActionTimeRef.current < 1500 || actionInProgress) {
       return;
     }
     
@@ -69,10 +77,10 @@ export function useControlsActions() {
         }
       }
     } finally {
-      // Allow new actions after a longer delay
+      // Allow new actions after a shorter delay
       setTimeout(() => {
         setActionInProgress(false);
-      }, 3000);
+      }, 1500); // Reduced from 3000ms to 1500ms
     }
   };
 

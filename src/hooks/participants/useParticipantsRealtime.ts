@@ -21,6 +21,8 @@ export function useParticipantsRealtime(
     // Create a unique channel name to prevent potential conflicts
     const realtimeChannelName = `meeting-${channelName}-participants-${Date.now()}`;
 
+    console.log(`Setting up realtime subscription for participants in ${channelName}`);
+
     // Set up realtime subscription for participant changes
     const participantsSubscription = supabase
       .channel(realtimeChannelName)
@@ -72,53 +74,57 @@ export function useParticipantsRealtime(
       updateParticipantData(userId, newParticipant, isSelf);
     }
 
-    // Handle UPDATE event
+    // Handle UPDATE event - Optimized to better handle audio status changes
     function handleUpdateEvent(updatedParticipant: Record<string, any>, oldParticipant: Record<string, any>) {
       const userId = updatedParticipant.user_id;
       
-      // Skip if this is a duplicate update or comes too soon after another update
-      if (notifications.isDuplicateUpdate(userId)) {
+      // Less aggressive duplicate filtering specifically for audio related updates
+      const hasAudioEnabledChanged = updatedParticipant.audio_enabled !== oldParticipant.audio_enabled;
+      const hasAudioMutedChanged = updatedParticipant.audio_muted !== oldParticipant.audio_muted;
+      
+      // Use a shorter cool-down period for audio updates (300ms) vs. other updates (1500ms)
+      const isAudioUpdate = hasAudioEnabledChanged || hasAudioMutedChanged;
+      const duplicateThreshold = isAudioUpdate ? 300 : 1500;
+      
+      // Skip if this is a duplicate update but with the shorter threshold for audio changes
+      if (notifications.isDuplicateUpdate(userId, duplicateThreshold) && !isAudioUpdate) {
         console.log(`Skipping duplicate update for user ${userId}`);
         return;
       }
       
-      // Only update if audio or screen sharing status changed
-      const hasAudioEnabledChanged = 
-        updatedParticipant.audio_enabled !== oldParticipant.audio_enabled && 
-        !notifications.hasRecentFieldUpdate(userId, 'audio_enabled');
-        
-      const hasAudioMutedChanged = 
-        updatedParticipant.audio_muted !== oldParticipant.audio_muted && 
-        !notifications.hasRecentFieldUpdate(userId, 'audio_muted');
-        
-      const hasScreenSharingChanged = 
-        updatedParticipant.screen_sharing !== oldParticipant.screen_sharing && 
-        !notifications.hasRecentFieldUpdate(userId, 'screen_sharing');
-      
-      // If none of the tracked fields changed significantly, skip this update
-      if (!hasAudioEnabledChanged && !hasAudioMutedChanged && !hasScreenSharingChanged) {
-        console.log(`No significant audio or screen sharing changes for ${userId}, skipping update`);
-        return;
+      // Log important status changes
+      if (hasAudioEnabledChanged || hasAudioMutedChanged) {
+        console.log(`Audio status change for ${userId}: muted=${updatedParticipant.audio_muted}, enabled=${updatedParticipant.audio_enabled}`);
       }
       
-      console.log(`Processing valid status update for ${userId}`);
+      const hasScreenSharingChanged = updatedParticipant.screen_sharing !== oldParticipant.screen_sharing;
       
-      setParticipants(prev => {
-        const existing = (prev[userId] || {}) as MeetingUser;
+      // Always process audio status changes, even if recent
+      if (hasAudioEnabledChanged || hasAudioMutedChanged || hasScreenSharingChanged) {
+        console.log(`Processing audio/screen status update for ${userId}`);
         
-        return {
-          ...prev,
-          [userId]: {
-            ...existing,
-            name: updatedParticipant.name || existing.name,
-            avatar: updatedParticipant.avatar || existing.avatar,
-            role: updatedParticipant.role || existing.role,
-            audioEnabled: updatedParticipant.audio_enabled,
-            audioMuted: updatedParticipant.audio_muted,
-            screenSharing: updatedParticipant.screen_sharing || false
-          }
-        };
-      });
+        setParticipants(prev => {
+          const existing = (prev[userId] || {}) as MeetingUser;
+          
+          return {
+            ...prev,
+            [userId]: {
+              ...existing,
+              name: updatedParticipant.name || existing.name,
+              avatar: updatedParticipant.avatar || existing.avatar,
+              role: updatedParticipant.role || existing.role,
+              audioEnabled: updatedParticipant.audio_enabled,
+              audioMuted: updatedParticipant.audio_muted,
+              screenSharing: updatedParticipant.screen_sharing || false
+            }
+          };
+        });
+        
+        if (isAudioUpdate) {
+          // Record this field update to avoid duplicate processing
+          notifications.trackFieldUpdate(userId, hasAudioMutedChanged ? 'audio_muted' : 'audio_enabled');
+        }
+      }
     }
 
     // Handle DELETE event - Fixed TypeScript errors here
@@ -134,7 +140,7 @@ export function useParticipantsRealtime(
       const isLikelyStatusUpdate = now - lastStatusUpdate < 3000;
       
       if (!isSelf && !isLikelyStatusUpdate) {
-        // Access properties safely using optional chaining and nullish coalescing
+        // Fix: Access properties safely with optional chaining and nullish coalescing
         const participantName = deletedParticipant?.name ?? 'Unknown user';
         notifications.showLeaveNotification(userId, participantName);
       }

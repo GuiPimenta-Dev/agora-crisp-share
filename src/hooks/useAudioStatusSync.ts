@@ -27,7 +27,14 @@ export function useAudioStatusSync(
   
   // Track audio status changes - only monitor the agoraState.audioMutedState change
   useEffect(() => {
-    if (!currentUser || !channelName || !agoraState.localAudioTrack) return;
+    if (!currentUser || !channelName || !agoraState.localAudioTrack) {
+      console.log("useAudioStatusSync: Missing required parameters", { 
+        hasCurrentUser: !!currentUser, 
+        channelName, 
+        hasAudioTrack: !!agoraState.localAudioTrack 
+      });
+      return;
+    }
 
     // Get current muted state directly from the track
     const audioMuted = agoraState.localAudioTrack.muted;
@@ -44,10 +51,10 @@ export function useAudioStatusSync(
       return;
     }
     
-    // Enhanced aggressive throttling - only allow updates every 3 seconds
+    // Use a much shorter throttling window (500ms instead of 3000ms) to be more responsive
     const now = Date.now();
     const timeSinceLastUpdate = now - lastUpdateTimeRef.current;
-    if (timeSinceLastUpdate < 3000) {
+    if (timeSinceLastUpdate < 500) {
       console.log(`Throttling audio sync - last update was ${timeSinceLastUpdate}ms ago`);
       return;
     }
@@ -55,6 +62,8 @@ export function useAudioStatusSync(
     // Update last update time and previous state ref before the async operation
     lastUpdateTimeRef.current = now;
     prevMutedStateRef.current = audioMuted;
+    
+    console.log(`Audio status change detected for ${currentUser.name}, muted: ${audioMuted}`);
     
     // Update audio status when it changes
     const updateAudioStatus = async () => {
@@ -65,7 +74,7 @@ export function useAudioStatusSync(
         // Record that we're sending this state to the database
         lastSentMuteStateRef.current = audioMuted;
         
-        console.log(`Updating audio status for ${currentUser.name} to ${audioMuted ? 'muted' : 'unmuted'}`);
+        console.log(`Updating audio status in database for ${currentUser.name} to ${audioMuted ? 'muted' : 'unmuted'}`);
         
         // Create the update payload - explicitly setting both fields
         const updateData = { 
@@ -91,21 +100,23 @@ export function useAudioStatusSync(
             description: `Audio status update failed: ${error.message}`,
             variant: "destructive"
           });
+        } else {
+          console.log(`Successfully updated audio status in database for ${currentUser.name}`);
         }
       } catch (error) {
         console.error("Exception in updateAudioStatus:", error);
         // Reset lastSentMuteStateRef since the update failed
         lastSentMuteStateRef.current = null;
       } finally {
-        // Add a delay before allowing more updates for stability
+        // Add a shorter delay before allowing more updates for better responsiveness
         setTimeout(() => {
           updateInProgressRef.current = false;
-        }, 2000);
+        }, 300); // Reduced from 2000ms to 300ms
       }
     };
     
     updateAudioStatus();
     
   // Only depend on audioMutedState to prevent unwanted updates
-  }, [agoraState.audioMutedState, currentUser, channelName]);
+  }, [agoraState.audioMutedState, currentUser, channelName, agoraState.localAudioTrack]);
 }
