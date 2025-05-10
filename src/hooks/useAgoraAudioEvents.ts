@@ -1,21 +1,22 @@
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { AgoraState } from "@/types/agora";
 import { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { MeetingUser } from "@/types/meeting";
-import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Hook to handle audio-related events
+ * Hook to handle audio-related events without Supabase synchronization
  */
 export function useAgoraAudioEvents(
   agoraState: AgoraState,
   setAgoraState: React.Dispatch<React.SetStateAction<AgoraState>>,
-  participants: Record<string, MeetingUser>,
-  channelName?: string
+  participants: Record<string, MeetingUser>
 ) {
   const client = agoraState.client;
+  
+  // Reference to store notified users that persists across rerenders
+  const notifiedUsersRef = useRef<Set<string>>(new Set<string>());
 
   useEffect(() => {
     if (!client) return;
@@ -29,28 +30,21 @@ export function useAgoraAudioEvents(
       if (remoteAudioTrack) {
         remoteAudioTrack.play();
         
-        // Notify about new user with audio
+        // Only notify about new user with audio if not previously notified
         const userId = user.uid.toString();
-        const participantName = participants[userId]?.name || `User ${userId}`;
         
-        toast({
-          title: "User connected audio",
-          description: `${participantName} joined the call`,
-        });
-        
-        // Update audio status in Supabase if the user already exists in participants
-        if (channelName) {
-          console.log(`Updating audio status for user ${userId} to unmuted`);
-          supabase.from("meeting_participants")
-            .update({ 
-              audio_enabled: true,
-              audio_muted: false 
-            })
-            .eq("meeting_id", channelName)
-            .eq("user_id", userId)
-            .then(({ error }) => {
-              if (error) console.error("Error updating audio status:", error);
-            });
+        if (!notifiedUsersRef.current.has(userId)) {
+          const participantName = participants[userId]?.name || `User ${userId}`;
+          
+          console.log(`User ${userId} (${participantName}) connected audio`);
+          
+          toast({
+            title: "User connected audio",
+            description: `${participantName} joined the call`,
+          });
+          
+          // Mark as notified to avoid duplicate messages
+          notifiedUsersRef.current.add(userId);
         }
       }
 
@@ -70,22 +64,6 @@ export function useAgoraAudioEvents(
       if (user.audioTrack) {
         user.audioTrack.stop();
       }
-      
-      // Update audio status in Supabase
-      const userId = user.uid.toString();
-      if (channelName) {
-        console.log(`Updating audio status for user ${userId} to muted`);
-        supabase.from("meeting_participants")
-          .update({ 
-            audio_enabled: false,
-            audio_muted: true 
-          })
-          .eq("meeting_id", channelName)
-          .eq("user_id", userId)
-          .then(({ error }) => {
-            if (error) console.error("Error updating audio status:", error);
-          });
-      }
     };
 
     client.on("user-published", handleUserAudioPublished);
@@ -96,5 +74,5 @@ export function useAgoraAudioEvents(
       client.off("user-published", handleUserAudioPublished);
       client.off("user-unpublished", handleUserAudioUnpublished);
     };
-  }, [client, setAgoraState, participants, channelName]);
+  }, [client, setAgoraState, participants]);
 }

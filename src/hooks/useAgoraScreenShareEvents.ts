@@ -4,10 +4,9 @@ import { toast } from "@/hooks/use-toast";
 import { AgoraState } from "@/types/agora";
 import { IAgoraRTCClient, IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { MeetingUser } from "@/types/meeting";
-import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Hook to handle screen sharing events
+ * Hook to handle screen sharing events without Supabase synchronization
  */
 export function useAgoraScreenShareEvents(
   agoraState: AgoraState,
@@ -17,7 +16,6 @@ export function useAgoraScreenShareEvents(
   participants: Record<string, MeetingUser>
 ) {
   const client = agoraState.client;
-  const channelName = agoraState.channelName;
 
   useEffect(() => {
     if (!client) return;
@@ -25,35 +23,44 @@ export function useAgoraScreenShareEvents(
     const handleUserScreenPublished = async (user: IAgoraRTCRemoteUser, mediaType: string) => {
       if (mediaType !== "video") return;
       
-      await client.subscribe(user, mediaType);
+      console.log("Remote user published video track (screen share) - attempting to subscribe", user.uid);
       
-      // User is sharing screen - check if someone else is already sharing
-      setAgoraState(prev => ({
-        ...prev,
-        screenShareUserId: user.uid,
-        remoteUsers: [...prev.remoteUsers.filter(u => u.uid !== user.uid), user]
-      }));
-      
-      // Update the Supabase database to mark this user as sharing screen
-      if (channelName) {
+      try {
+        // Subscribe to the remote user's video track (screen share)
+        await client.subscribe(user, mediaType);
+        console.log("Successfully subscribed to remote screen share");
+        
+        // Update Agora state with the screen sharing user ID
+        setAgoraState(prev => ({
+          ...prev,
+          screenShareUserId: user.uid,
+          remoteUsers: [...prev.remoteUsers.filter(u => u.uid !== user.uid), user]
+        }));
+        
+        // Find user info for notification
         const userId = user.uid.toString();
-        await updateScreenSharingStatus(channelName, userId, true);
-      }
-      
-      const userId = user.uid.toString();
-      const participantName = participants[userId]?.name || `User ${userId}`;
-      
-      toast({
-        title: "Screen sharing started",
-        description: `${participantName} started sharing their screen`,
-      });
-      
-      // If I was sharing, stop my sharing
-      if (isScreenSharing) {
-        await stopScreenShare();
+        const participantName = participants[userId]?.name || `User ${userId}`;
+        
+        // Show toast notification
         toast({
-          title: "Your screen sharing was interrupted",
-          description: "Another user started sharing their screen",
+          title: "Screen sharing started",
+          description: `${participantName} started sharing their screen`,
+        });
+        
+        // If current user was sharing, stop their sharing
+        if (isScreenSharing) {
+          await stopScreenShare();
+          toast({
+            title: "Your screen sharing was interrupted",
+            description: "Another user started sharing their screen",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error("Error subscribing to remote screen share:", error);
+        toast({
+          title: "Error viewing shared screen",
+          description: "Could not connect to the shared screen. Please try refreshing.",
           variant: "destructive"
         });
       }
@@ -62,15 +69,11 @@ export function useAgoraScreenShareEvents(
     const handleUserScreenUnpublished = async (user: IAgoraRTCRemoteUser, mediaType: string) => {
       if (mediaType !== "video") return;
       
+      console.log("Remote user unpublished video track - cleaning up", user.uid);
+      
       // User stopped sharing screen
       if (user.videoTrack) {
         user.videoTrack.stop();
-      }
-      
-      // Update the Supabase database to mark this user as not sharing screen
-      if (channelName) {
-        const userId = user.uid.toString();
-        await updateScreenSharingStatus(channelName, userId, false);
       }
       
       const userId = user.uid.toString();
@@ -87,30 +90,13 @@ export function useAgoraScreenShareEvents(
       });
     };
 
-    // Helper function to update screen sharing status in Supabase
-    async function updateScreenSharingStatus(meetingId: string, userId: string, isSharing: boolean) {
-      try {
-        const { error } = await supabase
-          .from("meeting_participants")
-          .update({ screen_sharing: isSharing })
-          .eq("meeting_id", meetingId)
-          .eq("user_id", userId);
-          
-        if (error) {
-          console.error("Failed to update screen sharing status in Supabase:", error);
-        }
-      } catch (error) {
-        console.error("Error updating screen sharing status:", error);
-      }
-    }
-
+    // Register event handlers
     client.on("user-published", handleUserScreenPublished);
     client.on("user-unpublished", handleUserScreenUnpublished);
 
-    // Clean up
     return () => {
       client.off("user-published", handleUserScreenPublished);
       client.off("user-unpublished", handleUserScreenUnpublished);
     };
-  }, [client, isScreenSharing, stopScreenShare, setAgoraState, participants, channelName]);
+  }, [client, isScreenSharing, stopScreenShare, setAgoraState, participants]);
 }
