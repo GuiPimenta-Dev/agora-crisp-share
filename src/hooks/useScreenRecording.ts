@@ -85,7 +85,6 @@ export function useScreenRecording() {
           }
         };
       } catch (audioError) {
-        // If we can't get audio, just use the screen capture
         console.warn("Could not capture system audio, recording screen only:", audioError);
         
         // Create MediaRecorder instance with just screen
@@ -132,46 +131,18 @@ export function useScreenRecording() {
     }
   };
   
-  // Ensure the storage bucket exists
+  // Updated to use the bucket we've already created via SQL migration
   const ensureBucketExists = async () => {
     try {
-      // Check if bucket exists using storage API
-      const { data: bucketList, error } = await supabase.storage.listBuckets();
+      // Simply check if we can access the bucket
+      const { data: objects, error } = await supabase.storage
+        .from('meeting-recordings')
+        .list('', { limit: 1 });
       
-      // If we can't check buckets due to permissions, just try the upload directly
       if (error) {
-        console.warn("Could not check if bucket exists, will try upload directly:", error);
-        return;
-      }
-      
-      // Check if the bucket exists in the list
-      const bucketExists = bucketList && Array.isArray(bucketList) && 
-        bucketList.some(bucket => bucket.name === 'meeting-recordings');
-      
-      if (!bucketExists) {
-        // Try to create the bucket if it doesn't exist
-        try {
-          const { data, error: createError } = await supabase.storage.createBucket('meeting-recordings', {
-            public: true, // Make the bucket public
-            fileSizeLimit: 100000000 // 100MB limit
-          });
-          
-          // Create RLS policy that allows public access
-          const { error: policyError } = await supabase.rpc('create_storage_policy', {
-            bucket_name: 'meeting-recordings',
-            policy_name: 'Public Access',
-            definition: 'true', // Always allow access
-            policy_operation: 'SELECT'
-          });
-          
-          if (createError) {
-            console.warn("Error creating bucket:", createError);
-          } else {
-            console.log("Created 'meeting-recordings' bucket");
-          }
-        } catch (createError) {
-          console.warn("Error creating bucket:", createError);
-        }
+        console.warn("Error checking bucket: ", error);
+        // We'll still attempt to upload anyway, as the bucket may exist
+        // but the user might not have list permissions
       }
     } catch (checkError) {
       console.warn("Error checking bucket existence:", checkError);
@@ -227,7 +198,7 @@ export function useScreenRecording() {
           description: "Saving to cloud storage, please wait...",
         });
         
-        // Make sure the bucket exists first
+        // Make sure the bucket exists (our SQL migration already created it)
         await ensureBucketExists();
         
         // Upload the recording
@@ -240,6 +211,7 @@ export function useScreenRecording() {
           });
         
         if (error) {
+          console.error("Upload error:", error);
           throw error;
         }
         
