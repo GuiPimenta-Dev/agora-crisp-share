@@ -4,7 +4,7 @@ import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { Monitor, Share2, Shield, AlertCircle, Maximize2, Minimize2 } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 
 interface ScreenShareViewProps {
@@ -16,7 +16,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   localSharing,
   remoteScreenUser,
 }) => {
-  const { startScreenShare, stopScreenShare, agoraState, currentUser } = useAgora();
+  const { startScreenShare, stopScreenShare, agoraState } = useAgora();
   const { toast } = useToast();
   const remoteVideoRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLDivElement>(null);
@@ -24,29 +24,12 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   
-  // Handle remote screen share - ensure ALL users can see shared screens
+  // Handle remote screen share
   useEffect(() => {
     if (remoteScreenUser && remoteScreenUser.videoTrack && remoteVideoRef.current) {
-      console.log("Playing remote screen share in ScreenShareView", remoteScreenUser.uid);
-      
-      try {
-        // Make sure container is visible and has dimensions
-        if (remoteVideoRef.current.clientWidth === 0) {
-          console.warn("Remote video container has zero width");
-        }
-        
-        remoteScreenUser.videoTrack.play(remoteVideoRef.current);
-      } catch (error) {
-        console.error("Error playing remote video track:", error);
-      }
-      
+      remoteScreenUser.videoTrack.play(remoteVideoRef.current);
       return () => {
-        console.log("Stopping remote screen share in cleanup");
-        try {
-          remoteScreenUser.videoTrack?.stop();
-        } catch (err) {
-          console.error("Error stopping remote track:", err);
-        }
+        remoteScreenUser.videoTrack?.stop();
       };
     }
   }, [remoteScreenUser]);
@@ -54,36 +37,21 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   // Handle local screen share
   useEffect(() => {
     if (localSharing && agoraState.screenVideoTrack && localVideoRef.current) {
-      console.log("Playing local screen share in ScreenShareView");
-      
-      try {
-        agoraState.screenVideoTrack.play(localVideoRef.current);
-      } catch (error) {
-        console.error("Error playing local screen share:", error);
-      }
-      
+      agoraState.screenVideoTrack.play(localVideoRef.current);
       return () => {
         // Cleanup when unmounting only
         if (agoraState.screenVideoTrack && !localSharing) {
-          console.log("Stopping local screen share in cleanup");
-          try {
-            agoraState.screenVideoTrack.stop();
-          } catch (err) {
-            console.error("Error stopping local track:", err);
-          }
+          agoraState.screenVideoTrack.stop();
         }
       };
     }
   }, [localSharing, agoraState.screenVideoTrack]);
   
-  const isScreenBeingShared = localSharing || !!remoteScreenUser;
+  const isScreenBeingShared = localSharing || remoteScreenUser;
   const isOtherUserSharing = !!remoteScreenUser;
-  
-  // Check if current user can share screen (coach or student)
-  const canShareScreen = currentUser?.role === "coach" || currentUser?.role === "student";
 
   const handleScreenShare = async () => {
-    if (isLoading || isOtherUserSharing || !canShareScreen) return;
+    if (isLoading || isOtherUserSharing) return; // Prevent when loading or other is sharing
     
     setIsLoading(true);
     try {
@@ -177,40 +145,36 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
               <p className="text-blue-200 max-w-md">
                 {isOtherUserSharing 
                   ? "Outro participante já está compartilhando a tela. Aguarde ele finalizar para compartilhar a sua."
-                  : canShareScreen 
-                    ? "Clique no botão abaixo para compartilhar sua tela com ultra alta resolução (até 4K/2160p)"
-                    : "Um apresentador ou aluno irá compartilhar uma tela em breve."}
+                  : "Clique no botão abaixo para compartilhar sua tela com ultra alta resolução (até 4K/2160p)"}
               </p>
               
-              {canShareScreen && (
-                <Button
-                  className="mt-6"
-                  onClick={localSharing ? stopScreenShare : handleScreenShare}
-                  disabled={isLoading || isOtherUserSharing}
-                >
-                  {isLoading ? (
-                    <>
-                      <AlertCircle className="h-4 w-4 mr-2 animate-pulse" />
-                      Aguarde...
-                    </>
-                  ) : isOtherUserSharing ? (
-                    <>
-                      <AlertCircle className="h-4 w-4 mr-2" />
-                      Outro usuário compartilhando
-                    </>
-                  ) : localSharing ? (
-                    <>
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Parar compartilhamento
-                    </>
-                  ) : (
-                    <>
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Compartilhar sua tela
-                    </>
-                  )}
-                </Button>
-              )}
+              <Button
+                className="mt-6"
+                onClick={localSharing ? stopScreenShare : handleScreenShare}
+                disabled={isLoading || isOtherUserSharing}
+              >
+                {isLoading ? (
+                  <>
+                    <AlertCircle className="h-4 w-4 mr-2 animate-pulse" />
+                    Aguarde...
+                  </>
+                ) : isOtherUserSharing ? (
+                  <>
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    Outro usuário compartilhando
+                  </>
+                ) : localSharing ? (
+                  <>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Parar compartilhamento
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="h-4 w-4 mr-2" />
+                    Compartilhar sua tela
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </div>

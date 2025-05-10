@@ -1,5 +1,5 @@
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { apiLeaveMeeting } from "@/api/meetingApi";
 import { MeetingUser } from "@/types/meeting";
@@ -15,24 +15,12 @@ export function usePresenceRegistration(
   currentUser: MeetingUser | null,
   channelName?: string
 ) {
-  // Track if we've already registered this user to avoid duplicate registrations
-  const registeredRef = useRef<boolean>(false);
-  
-  // Track window unload handler to avoid removing it unnecessarily
-  const unloadHandlerRef = useRef<(() => void) | null>(null);
-  
   // Initial presence registration
   useEffect(() => {
     if (!currentUser || !agoraState.joinState || !channelName) return;
 
     // When we join successfully, add ourselves to the database
     const registerPresence = async () => {
-      // Skip if we've already registered
-      if (registeredRef.current) {
-        console.log(`User ${currentUser.id} already registered, skipping redundant registration`);
-        return;
-      }
-      
       try {
         console.log(`Registering presence for user ${currentUser.id} in channel ${channelName}`);
         
@@ -50,25 +38,41 @@ export function usePresenceRegistration(
 
         console.log("Participant data to register:", participantData);
         
-        // Direct Supabase call
-        const { error } = await supabase
-          .from("meeting_participants")
-          .upsert(participantData, { onConflict: 'meeting_id,user_id' });
+        // Try to update via API instead of direct Supabase call to work around auth issues
+        const response = await fetch('/api/register-presence', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(participantData)
+        });
+        
+        // Fallback to direct Supabase call if API route is not available
+        if (!response.ok && response.status === 404) {
+          console.log("API route not available, falling back to direct Supabase call");
           
-        if (error) {
-          console.error("Failed to register presence in Supabase:", error);
-          
-          // Don't show error toast for auth issues - this is expected for anonymous users
-          if (error.code !== "401" && error.code !== "PGRST116") {
-            toast({
-              title: "Sync Warning",
-              description: "Participant list may not be fully synchronized",
-              variant: "default"
-            });
+          // Try direct Supabase call (might fail with 401 but that's ok)
+          const { error } = await supabase
+            .from("meeting_participants")
+            .upsert(participantData, { onConflict: 'meeting_id,user_id' });
+            
+          if (error) {
+            console.error("Failed to register presence in Supabase:", error);
+            
+            // Don't show error toast for auth issues - this is expected for anonymous users
+            if (error.code !== "401" && error.code !== "PGRST116") {
+              toast({
+                title: "Sync Warning",
+                description: "Participant list may not be fully synchronized",
+                variant: "default"
+              });
+            }
+          } else {
+            console.log(`Successfully registered presence for ${currentUser.name} in channel ${channelName}`);
           }
+        } else if (response.ok) {
+          console.log("Successfully registered presence via API");
         } else {
-          console.log(`Successfully registered presence for ${currentUser.name} in channel ${channelName}`);
-          registeredRef.current = true;
+          console.error("Failed to register presence via API:", response.status, response.statusText);
+          console.log("Response body:", await response.text());
         }
       } catch (error) {
         console.error("Failed to initialize participant sync:", error);
@@ -84,48 +88,31 @@ export function usePresenceRegistration(
     // Handle tab close/browser close events to properly remove the participant
     const handleBeforeUnload = () => {
       if (currentUser && channelName) {
-        // Direct Supabase call to leave meeting using navigator.sendBeacon for reliability
-        navigator.sendBeacon('/api/leave-meeting', JSON.stringify({
+        // Using sendBeacon for more reliable delivery during page unload
+        const endpoint = '/api/leave-meeting';
+        const data = JSON.stringify({
           meetingId: channelName,
           userId: currentUser.id
-        }));
+        });
+        navigator.sendBeacon(endpoint, data);
         
         console.log("Sent leave meeting beacon on page unload");
       }
     };
     
-    // Only add the listener if we haven't already
-    if (!unloadHandlerRef.current) {
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      unloadHandlerRef.current = handleBeforeUnload;
-    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
     
     // Clean up when leaving
     return () => {
       clearTimeout(timer);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
       
-      // Only remove the participant if the component is fully unmounting
-      // Check if the window is still available (not closing/refreshing)
-      if (typeof window !== 'undefined' && currentUser && channelName) {
-        console.log(`Component unmounting, checking if we should remove participant ${currentUser.id}`);
-        
-        // Don't remove the participant here - we'll let the beforeunload handler do that
-        // This prevents removal during status updates and other component re-renders
+      // When we leave the meeting or unmount the component, remove ourselves from the participants table
+      if (currentUser && channelName) {
+        apiLeaveMeeting(channelName, currentUser.id).catch(err => {
+          console.error("Error removing participant on cleanup:", err);
+        });
       }
     };
-  }, [currentUser, agoraState.joinState, channelName]); 
-  
-  // Handle final cleanup on component unmount
-  useEffect(() => {
-    return () => {
-      // Remove the unload handler if it exists
-      if (unloadHandlerRef.current) {
-        window.removeEventListener('beforeunload', unloadHandlerRef.current);
-        unloadHandlerRef.current = null;
-      }
-      
-      // Only remove participant when the app is fully closed
-      // We now handle this with the beforeunload event instead
-    };
-  }, []);
+  }, [currentUser, agoraState.joinState, channelName, agoraState.localAudioTrack?.muted]);
 }

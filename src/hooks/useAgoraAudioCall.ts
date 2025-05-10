@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { toast } from "@/hooks/use-toast";
 import { 
   createMicrophoneAudioTrack, 
@@ -7,7 +7,6 @@ import {
 } from "@/lib/agoraUtils";
 import { AgoraState } from "@/types/agora";
 import { IAgoraRTCClient } from "agora-rtc-sdk-ng";
-import { supabase } from "@/integrations/supabase/client";
 
 export function useAgoraAudioCall(
   agoraState: AgoraState,
@@ -15,18 +14,6 @@ export function useAgoraAudioCall(
   setIsMuted: React.Dispatch<React.SetStateAction<boolean>>,
   setIsScreenSharing: React.Dispatch<React.SetStateAction<boolean>>
 ) {
-  // Keep track of last update time to throttle rapid state changes
-  const lastUpdateTimeRef = useRef<number>(0);
-  const pendingMuteStateRef = useRef<boolean | null>(null);
-  const toggleInProgressRef = useRef<boolean>(false);
-
-  // Sync UI mute state with track mute state when track changes
-  useEffect(() => {
-    if (agoraState.localAudioTrack) {
-      setIsMuted(agoraState.localAudioTrack.muted);
-    }
-  }, [agoraState.localAudioTrack, setIsMuted]);
-
   const joinAudioCall = async (channelName: string, audioEnabled: boolean = false): Promise<boolean> => {
     if (!agoraState.client) {
       console.error("Agora client not initialized in joinAudioCall");
@@ -74,8 +61,8 @@ export function useAgoraAudioCall(
         setIsMuted(true);
         
         toast({
-          title: "Connected",
-          description: `Joined meeting ${channelName} with microphone muted`,
+          title: "Conectado",
+          description: `Você entrou na sala ${channelName} com microfone mutado`,
         });
       } else {
         console.error("Failed to join channel:", channelName);
@@ -133,62 +120,31 @@ export function useAgoraAudioCall(
   };
 
   const toggleMute = () => {
-    if (!agoraState.localAudioTrack) {
-      console.log("Cannot toggle mute - no local audio track available");
-      return;
-    }
+    if (!agoraState.localAudioTrack) return;
     
-    // Skip if toggle is already in progress
-    if (toggleInProgressRef.current) {
-      console.log("Toggle mute already in progress, skipping");
-      return;
-    }
+    // IMPORTANT: Use setMuted instead of setEnabled to avoid the TRACK_STATE_UNREACHABLE error
+    const currentMuted = agoraState.localAudioTrack.muted;
+    console.log("Toggling mute state from", currentMuted, "to", !currentMuted);
     
-    // Mark toggle as in progress
-    toggleInProgressRef.current = true;
+    // Set the track muted state
+    agoraState.localAudioTrack.setMuted(!currentMuted);
     
-    // IMPROVED: Reduced throttling to make UI more responsive
-    const now = Date.now();
-    if (now - lastUpdateTimeRef.current < 300) {
-      console.log("Throttling rapid mute toggle");
-      toggleInProgressRef.current = false;
-      return;
-    }
-    lastUpdateTimeRef.current = now;
+    // Update the UI state
+    setIsMuted(!currentMuted);
     
-    try {
-      // Get current muted state
-      const currentMuted = agoraState.localAudioTrack.muted;
-      console.log("Toggling mute state from", currentMuted, "to", !currentMuted);
-      
-      // Set the track muted state
-      agoraState.localAudioTrack.setMuted(!currentMuted);
-      
-      // Update the UI state immediately
-      setIsMuted(!currentMuted);
-      
-      // Force update AgoraState to trigger the useEffect in useAudioStatusSync
-      setAgoraState(prev => ({
-        ...prev,
-        audioMutedState: !currentMuted, // Add this as a trigger property
-      }));
-      
-      // Store this pending state to avoid duplicate notifications
-      pendingMuteStateRef.current = !currentMuted;
-    } catch (error) {
-      console.error("Error toggling mute state:", error);
-      
-      toast({
-        title: "Error",
-        description: "Failed to change microphone state",
-        variant: "destructive",
-      });
-    } finally {
-      // Release the toggle lock after a short delay
-      setTimeout(() => {
-        toggleInProgressRef.current = false;
-      }, 100);
-    }
+    // Force update AgoraState to trigger the useEffect in useAudioStatusSync
+    // We use a custom audioMutedState property to trigger the useEffect without modifying the track
+    setAgoraState(prev => ({
+      ...prev,
+      audioMutedState: !currentMuted, // Add this as a trigger property
+    }));
+    
+    toast({
+      title: !currentMuted ? "Microfone silenciado" : "Microfone ativado",
+      description: !currentMuted 
+        ? "Os outros participantes não podem ouvir você" 
+        : "Os outros participantes podem ouvir você agora",
+    });
   };
 
   return {
