@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/tooltip";
 
 const CreateMeeting: React.FC = () => {
-  const [meetingId, setMeetingId] = useState(`meeting-${Math.floor(Math.random() * 10000)}`);
+  const [meetingId, setMeetingId] = useState(`booking-${Math.floor(Math.random() * 10000)}`);
   const [coachId, setCoachId] = useState(localStorage.getItem("coachId") || "");
   const [studentId, setStudentId] = useState(localStorage.getItem("studentId") || "");
   const [isCreating, setIsCreating] = useState(false);
@@ -43,6 +43,7 @@ const CreateMeeting: React.FC = () => {
       localStorage.setItem("coachId", coachId);
       localStorage.setItem("studentId", studentId);
       
+      // A nova API criará um registro na tabela bookings
       const result = await callCreateMeeting({
         id: meetingId,
         coach_id: coachId,

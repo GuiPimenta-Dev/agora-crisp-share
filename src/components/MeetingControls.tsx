@@ -1,9 +1,8 @@
-
-import React from "react";
-import { Button } from "@/components/ui/button";
-import { Mic, MicOff, MonitorX, Phone, Share2, Video, VideoOff } from "lucide-react";
+import React, { useState } from "react";
 import { useAgora } from "@/context/AgoraContext";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
+import { Mic, MicOff, Monitor, MonitorOff, Phone, PhoneOff, Video, VideoOff, ScreenShare, ScreenShareOff, CircleDot, Loader2 } from "lucide-react";
+import { useScreenRecording } from "@/hooks/useScreenRecording";
 
 interface MeetingControlsProps {
   className?: string;
@@ -11,110 +10,128 @@ interface MeetingControlsProps {
 
 const MeetingControls: React.FC<MeetingControlsProps> = ({ className }) => {
   const { 
-    isMuted, 
-    toggleMute, 
-    isScreenSharing, 
-    startScreenShare, 
-    stopScreenShare, 
+    agoraState,
     leaveAudioCall,
-    isScreenRecording,
-    toggleScreenRecording,
-    currentUser
+    toggleMute,
+    startScreenShare,
+    stopScreenShare,
+    isMuted,
+    isScreenSharing
   } = useAgora();
+  
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const { toggleScreenRecording, isScreenRecording } = useScreenRecording();
 
-  // Check if user can use audio
-  const canUseAudio = currentUser?.role === "coach" || currentUser?.role === "student";
+  const handleLeave = async () => {
+    setIsLeaving(true);
+    try {
+      await leaveAudioCall();
+    } finally {
+      setIsLeaving(false);
+    }
+  };
 
-  // Check if user can share screen (coach and student can share screen now)
-  const canShareScreen = currentUser?.role === "coach" || currentUser?.role === "student";
+  const handleMuteToggle = async () => {
+    setIsToggling(true);
+    try {
+      await toggleMute();
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
+  const handleScreenShareToggle = async () => {
+    setIsSharing(true);
+    try {
+      if (isScreenSharing) {
+        await stopScreenShare();
+      } else {
+        await startScreenShare();
+      }
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleRecordingToggle = () => {
+    toggleScreenRecording(agoraState.channelName);
+  };
 
   return (
-    <div className={`flex items-center justify-center gap-4 p-4 ${className}`}>
-      {canUseAudio ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={isMuted ? "outline" : "default"}
-              size="icon"
-              onClick={toggleMute}
-              className="h-12 w-12 rounded-full"
-            >
-              {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{isMuted ? "Unmute" : "Mute"}</p>
-          </TooltipContent>
-        </Tooltip>
-      ) : (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              disabled
-              className="h-12 w-12 rounded-full opacity-50 cursor-not-allowed"
-            >
-              <MicOff className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Audio disabled for listeners</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
+    <div className={`flex items-center justify-center gap-4 p-4 bg-black/60 rounded-lg ${className || ''}`}>
+      <Button 
+        variant="secondary"
+        onClick={handleMuteToggle}
+        disabled={isToggling}
+      >
+        {isMuted ? (
+          <>
+            <MicOff className="mr-2 h-4 w-4" />
+            Unmute
+          </>
+        ) : (
+          <>
+            <Mic className="mr-2 h-4 w-4" />
+            Mute
+          </>
+        )}
+      </Button>
 
-      {canShareScreen && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={isScreenSharing ? "destructive" : "default"}
-              size="icon"
-              onClick={isScreenSharing ? stopScreenShare : startScreenShare}
-              className="h-12 w-12 rounded-full"
-            >
-              {isScreenSharing ? <MonitorX className="h-5 w-5" /> : <Share2 className="h-5 w-5" />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{isScreenSharing ? "Stop sharing" : "Share screen"}</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
+      <Button
+        variant="secondary"
+        onClick={handleScreenShareToggle}
+        disabled={isSharing}
+      >
+        {isScreenSharing ? (
+          <>
+            <ScreenShareOff className="mr-2 h-4 w-4" />
+            Stop Share
+          </>
+        ) : (
+          <>
+            <ScreenShare className="mr-2 h-4 w-4" />
+            Share Screen
+          </>
+        )}
+      </Button>
       
-      {currentUser?.role === "coach" && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant={isScreenRecording ? "destructive" : "default"}
-              size="icon"
-              onClick={toggleScreenRecording}
-              className="h-12 w-12 rounded-full"
-            >
-              {isScreenRecording ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>{isScreenRecording ? "Stop recording" : "Record screen"}</p>
-          </TooltipContent>
-        </Tooltip>
-      )}
+      <Button
+        variant="secondary"
+        onClick={handleRecordingToggle}
+        disabled={isSharing}
+      >
+        {isScreenRecording ? (
+          <>
+            <CircleDot className="mr-2 h-4 w-4 animate-pulse" />
+            Stop Recording
+          </>
+        ) : (
+          <>
+            <Monitor className="mr-2 h-4 w-4" />
+            Record Screen
+          </>
+        )}
+      </Button>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="destructive"
-            size="icon"
-            onClick={leaveAudioCall}
-            className="h-12 w-12 rounded-full"
-          >
-            <Phone className="h-5 w-5 rotate-[135deg]" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Leave meeting</p>
-        </TooltipContent>
-      </Tooltip>
+      <Button 
+        variant="destructive"
+        onClick={handleLeave}
+        disabled={isLeaving}
+      >
+        {isLeaving ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Leaving...
+          </>
+        ) : (
+          <>
+            <PhoneOff className="mr-2 h-4 w-4" />
+            Leave
+          </>
+        )}
+      </Button>
     </div>
   );
 };

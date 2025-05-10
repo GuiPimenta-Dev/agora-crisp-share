@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,9 +9,14 @@ export function useScreenRecording() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const recordingStartTimeRef = useRef<Date | null>(null);
+  const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
 
-  const startRecording = async () => {
+  const startRecording = async (meetingId?: string) => {
     recordedChunksRef.current = [];
+    // Armazenar o ID da reunião para uso posterior ao salvar a gravação
+    if (meetingId) {
+      setCurrentMeetingId(meetingId);
+    }
     
     try {
       // Get the current tab's ID - this ensures we're recording the current meeting tab
@@ -164,6 +170,35 @@ export function useScreenRecording() {
     stream.getTracks().forEach(track => track.stop());
   };
   
+  // Função para atualizar o booking com a URL da gravação
+  const updateBookingWithRecordingUrl = async (meetingId: string | null, recordingUrl: string) => {
+    if (!meetingId) {
+      console.warn("No meeting ID provided to update booking with recording URL");
+      return false;
+    }
+
+    try {
+      console.log(`Updating booking ${meetingId} with recording URL: ${recordingUrl}`);
+      
+      // Atualizar a coluna recording_url na tabela bookings
+      const { error } = await supabase
+        .from('bookings')
+        .update({ recording_url: recordingUrl })
+        .eq('id', meetingId);
+      
+      if (error) {
+        console.error("Error updating booking with recording URL:", error);
+        return false;
+      }
+      
+      console.log("Successfully updated booking with recording URL");
+      return true;
+    } catch (error) {
+      console.error("Error updating booking with recording URL:", error);
+      return false;
+    }
+  };
+  
   // Set up stop handler
   const setupStopHandler = (
     mediaRecorder: MediaRecorder, 
@@ -220,13 +255,13 @@ export function useScreenRecording() {
           .from('meeting-recordings')
           .getPublicUrl(data.path);
         
+        // Atualizar o booking com a URL da gravação
+        await updateBookingWithRecordingUrl(currentMeetingId, publicUrl);
+        
         toast({
           title: "Recording saved",
           description: "Your screen recording has been saved to cloud storage",
         });
-        
-        // Store the recording URL in the booking table if needed
-        // This part would need to be implemented if the meeting is associated with a booking
         
         // Release resources
         URL.revokeObjectURL(url);
@@ -243,15 +278,16 @@ export function useScreenRecording() {
       } finally {
         setIsRecording(false);
         setIsSaving(false);
+        setCurrentMeetingId(null); // Limpar o ID da reunião atual
       }
     };
   };
   
-  const toggleRecording = () => {
+  const toggleRecording = (meetingId?: string) => {
     if (isRecording) {
       stopRecording();
     } else {
-      startRecording();
+      startRecording(meetingId);
     }
   };
   

@@ -1,11 +1,11 @@
 
 import { Meeting, MeetingUser, Role, CreateMeetingRequest } from "@/types/meeting";
 
-// In-memory storage for meetings
+// In-memory storage for bookings/meetings
 const meetings: Record<string, Meeting> = {};
 
 /**
- * Create a new meeting
+ * Create a new meeting (agora usando bookings)
  */
 export const createMeeting = (data: CreateMeetingRequest): Meeting => {
   const { id, coach_id, student_id } = data;
