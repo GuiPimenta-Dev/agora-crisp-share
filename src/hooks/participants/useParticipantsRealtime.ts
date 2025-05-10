@@ -104,7 +104,7 @@ export function useParticipantsRealtime(
       console.log(`Processing valid status update for ${userId}`);
       
       setParticipants(prev => {
-        const existing = prev[userId] || {};
+        const existing = (prev[userId] || {}) as MeetingUser;
         
         return {
           ...prev,
