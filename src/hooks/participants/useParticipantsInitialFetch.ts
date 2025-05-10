@@ -9,11 +9,17 @@ import { callGetParticipants } from "@/api/MeetingApiRoutes";
 export function useParticipantsInitialFetch(
   channelName?: string,
   setParticipants?: React.Dispatch<React.SetStateAction<Record<string, MeetingUser>>>,
-  currentUser?: MeetingUser | null
+  currentUser?: MeetingUser | null,
+  setLoadingComplete?: () => void,
+  setError?: (message: string) => void
 ) {
   // Fetch participants when channel name changes
   useEffect(() => {
-    if (!channelName || !setParticipants) return;
+    if (!channelName || !setParticipants) {
+      // Call setLoadingComplete if provided even when there's nothing to fetch
+      if (setLoadingComplete) setLoadingComplete();
+      return;
+    }
 
     const fetchParticipants = async () => {
       try {
@@ -23,9 +29,19 @@ export function useParticipantsInitialFetch(
         if (result.success && result.participants) {
           console.log(`Got ${Object.keys(result.participants).length} participants`);
           setParticipants(result.participants);
+        } else if (setError && result.error) {
+          setError(result.error);
         }
       } catch (error) {
         console.error("Error fetching participants:", error);
+        if (setError) {
+          setError("Failed to load participants");
+        }
+      } finally {
+        // Signal that loading is complete
+        if (setLoadingComplete) {
+          setLoadingComplete();
+        }
       }
     };
 
@@ -40,5 +56,5 @@ export function useParticipantsInitialFetch(
         [user.id]: user
       }));
     }
-  }, [channelName, setParticipants, currentUser]);
+  }, [channelName, setParticipants, currentUser, setLoadingComplete, setError]);
 }
