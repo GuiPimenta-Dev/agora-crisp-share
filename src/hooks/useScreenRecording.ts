@@ -217,8 +217,8 @@ export function useScreenRecording() {
   // Ensure the storage bucket exists
   const ensureBucketExists = async () => {
     try {
-      // Check if bucket already exists
-      const { data: buckets, error } = await supabase.rpc('get_buckets');
+      // Check if bucket exists using storage API instead of RPC
+      const { data: bucketList, error } = await supabase.storage.listBuckets();
       
       // If we can't check buckets due to permissions, just try the upload directly
       if (error) {
@@ -226,13 +226,21 @@ export function useScreenRecording() {
         return;
       }
       
-      // If bucket doesn't exist in the list, it may still exist but user doesn't have permission to list
-      // The upload will fail if the bucket truly doesn't exist
-      const bucketExists = buckets && Array.isArray(buckets) && 
-        buckets.some(bucket => bucket.name === 'meeting-recordings');
+      // Check if the bucket exists in the list
+      const bucketExists = bucketList && Array.isArray(bucketList) && 
+        bucketList.some(bucket => bucket.name === 'meeting-recordings');
       
       if (!bucketExists) {
-        console.warn("Bucket 'meeting-recordings' may not exist. Upload might fail.");
+        // Try to create the bucket if it doesn't exist
+        try {
+          await supabase.storage.createBucket('meeting-recordings', {
+            public: false,
+            fileSizeLimit: 100000000 // 100MB limit
+          });
+          console.log("Created 'meeting-recordings' bucket");
+        } catch (createError) {
+          console.warn("Error creating bucket:", createError);
+        }
       }
     } catch (checkError) {
       console.warn("Error checking bucket existence:", checkError);

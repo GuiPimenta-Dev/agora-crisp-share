@@ -27,9 +27,16 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   // Handle remote screen share
   useEffect(() => {
     if (remoteScreenUser && remoteScreenUser.videoTrack && remoteVideoRef.current) {
-      // Play the video track into the specific element ID
-      const remoteVideoElementId = "remote-video-player";
-      remoteScreenUser.videoTrack.play(remoteVideoElementId);
+      // Play the video track in the container
+      const remoteVideoElement = document.getElementById("remote-video-player");
+      if (remoteVideoElement) {
+        remoteScreenUser.videoTrack.play();
+        // Move the video player to our container
+        const playerElement = document.querySelector('.agora_video_player');
+        if (playerElement && remoteVideoElement) {
+          remoteVideoElement.appendChild(playerElement);
+        }
+      }
       
       // Try to determine resolution
       const onStats = (stats: any) => {
@@ -60,9 +67,16 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   // Handle local screen share
   useEffect(() => {
     if (localSharing && agoraState.screenVideoTrack && localVideoRef.current) {
-      // Play the video track into the specific element ID
-      const localVideoElementId = "local-video-player";
-      agoraState.screenVideoTrack.play(localVideoElementId);
+      // Play the video track in the container
+      const localVideoElement = document.getElementById("local-video-player");
+      if (localVideoElement) {
+        agoraState.screenVideoTrack.play();
+        // Move the video player to our container
+        const playerElement = document.querySelector('.agora_video_player');
+        if (playerElement && localVideoElement) {
+          localVideoElement.appendChild(playerElement);
+        }
+      }
       
       // Try to determine local resolution
       const onStats = (stats: any) => {
