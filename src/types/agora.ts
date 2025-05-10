@@ -1,3 +1,4 @@
+
 import { 
   IAgoraRTCClient, 
   IAgoraRTCRemoteUser, 
@@ -18,7 +19,6 @@ export interface AgoraState {
   isRecording: boolean;
   recordingId?: string;
   channelName?: string;
-  audioMutedState?: boolean; // Added to trigger useEffect without modifying track
 }
 
 export interface AgoraContextType {
@@ -49,4 +49,3 @@ export interface RecordingSettings {
   resourceId?: string;
   recordingId?: string;
 }
-

@@ -81,8 +81,7 @@ export const AgoraProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const { startScreenShare, stopScreenShare } = useAgoraScreenShare(
     agoraState,
     setAgoraState,
-    setIsScreenSharing,
-    currentUser // Pass currentUser to useAgoraScreenShare
+    setIsScreenSharing
   );
   
   const { startRecording, stopRecording, downloadRecording } = useAgoraRecording(

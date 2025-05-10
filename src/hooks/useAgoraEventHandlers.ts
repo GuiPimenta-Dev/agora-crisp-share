@@ -3,6 +3,8 @@ import { AgoraState } from "@/types/agora";
 import { MeetingUser } from "@/types/meeting";
 import { useAgoraPresenceSync } from "./useAgoraPresenceSync";
 import { useAgoraRemoteUsers } from "./useAgoraRemoteUsers";
+import { useAgoraAudioEvents } from "./useAgoraAudioEvents";
+import { useAgoraScreenShareEvents } from "./useAgoraScreenShareEvents";
 
 /**
  * Main hook that composes all the Agora event handlers together
@@ -31,5 +33,22 @@ export function useAgoraEventHandlers(
     isScreenSharing,
     participants,
     channelName
+  );
+
+  // Handle audio-related events
+  useAgoraAudioEvents(
+    agoraState,
+    setAgoraState,
+    participants,
+    channelName
+  );
+
+  // Handle screen sharing events
+  useAgoraScreenShareEvents(
+    agoraState,
+    setAgoraState,
+    stopScreenShare,
+    isScreenSharing,
+    participants
   );
 }

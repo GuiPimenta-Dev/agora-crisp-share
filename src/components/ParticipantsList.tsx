@@ -1,7 +1,6 @@
-
 import React from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Users, Crown, Gamepad2, User } from "lucide-react";
+import { Mic, MicOff, Users, MonitorSmartphone, Crown, Gamepad2, User } from "lucide-react";
 import { useAgora } from "@/context/AgoraContext";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
@@ -19,7 +18,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
   meetingId,
   className = ""
 }) => {
-  const { currentUser } = useAgora();
+  const { agoraState, currentUser } = useAgora();
   const { sortedParticipants, isLoading, error } = useParticipantsList(meetingId);
   
   // Get initials from name
@@ -110,10 +109,15 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
           {sortedParticipants.map((participant) => {
             const isCurrentUser = currentUser && participant.id === currentUser.id;
             
+            // IMPORTANT: Use the audioMuted property directly instead of checking audioEnabled
+            const isAudioMuted = participant.audioMuted === undefined ? true : participant.audioMuted;
+            
             return (
               <div 
                 key={participant.id} 
                 className={`flex items-center gap-3 p-2 rounded-md ${
+                  participant.screenSharing ? "bg-secondary/40" : ""
+                } ${
                   isCurrentUser ? "ring-1 ring-primary/20" : ""
                 }`}
               >
@@ -146,6 +150,17 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
                     </Badge>
                   </div>
                 </div>
+                
+                <div className="flex items-center gap-2">
+                  {participant.screenSharing && (
+                    <MonitorSmartphone className="h-4 w-4 text-blue-500" />
+                  )}
+                  {!isAudioMuted ? (
+                    <Mic className="h-4 w-4 text-primary" />
+                  ) : (
+                    <MicOff className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
               </div>
             );
           })}
@@ -153,6 +168,6 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
       </ScrollArea>
     </Card>
   );
-};
+}
 
 export default ParticipantsList;
