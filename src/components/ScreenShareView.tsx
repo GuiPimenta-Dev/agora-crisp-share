@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from "react";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { Monitor, Share2, Shield, AlertCircle, Maximize2, Minimize2, Zap } from "lucide-react";
@@ -22,14 +21,15 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   const localVideoRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerRef, setContainerRef] = useState<HTMLDivElement | null>(null);
   const [resolution, setResolution] = useState<string>("Ultra HD");
   
   // Handle remote screen share
   useEffect(() => {
     if (remoteScreenUser && remoteScreenUser.videoTrack && remoteVideoRef.current) {
-      // Use the correct play method without arguments
-      remoteScreenUser.videoTrack.play();
+      // Play the video track into the specific element ID
+      const remoteVideoElementId = "remote-video-player";
+      remoteScreenUser.videoTrack.play(remoteVideoElementId);
       
       // Try to determine resolution
       const onStats = (stats: any) => {
@@ -49,7 +49,9 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
       }, 5000);
       
       return () => {
-        remoteScreenUser.videoTrack?.stop();
+        if (remoteScreenUser.videoTrack) {
+          remoteScreenUser.videoTrack.stop();
+        }
         clearInterval(statsInterval);
       };
     }
@@ -58,8 +60,9 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   // Handle local screen share
   useEffect(() => {
     if (localSharing && agoraState.screenVideoTrack && localVideoRef.current) {
-      // Use the correct play method without arguments
-      agoraState.screenVideoTrack.play();
+      // Play the video track into the specific element ID
+      const localVideoElementId = "local-video-player";
+      agoraState.screenVideoTrack.play(localVideoElementId);
       
       // Try to determine local resolution
       const onStats = (stats: any) => {
@@ -119,11 +122,11 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
 
   // Handle fullscreen toggle
   const toggleFullscreen = () => {
-    if (!containerRef.current) return;
+    if (!containerRef) return;
 
     if (!isFullscreen) {
-      if (containerRef.current.requestFullscreen) {
-        containerRef.current.requestFullscreen()
+      if (containerRef.requestFullscreen) {
+        containerRef.requestFullscreen()
           .then(() => setIsFullscreen(true))
           .catch(err => console.error("Falha ao entrar em fullscreen:", err));
       }
@@ -150,13 +153,17 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   }, []);
   
   return (
-    <div ref={containerRef} className="screen-share-container h-full w-full relative rounded-md overflow-hidden">
+    <div ref={setContainerRef} className="screen-share-container h-full w-full relative rounded-md overflow-hidden">
       {isScreenBeingShared ? (
         <div className="relative w-full h-full">
           {remoteScreenUser ? (
-            <div ref={remoteVideoRef} id="remote-video-container" className="w-full h-full bg-black" />
+            <div ref={remoteVideoRef} className="w-full h-full bg-black">
+              <div id="remote-video-player" className="w-full h-full"></div>
+            </div>
           ) : localSharing ? (
-            <div ref={localVideoRef} id="local-video-container" className="w-full h-full bg-black" />
+            <div ref={localVideoRef} className="w-full h-full bg-black">
+              <div id="local-video-player" className="w-full h-full"></div>
+            </div>
           ) : null}
           
           <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">

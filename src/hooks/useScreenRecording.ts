@@ -29,7 +29,6 @@ export function useScreenRecording() {
           echoCancellation: true,
           noiseSuppression: true,
           sampleRate: 48000, // Higher audio quality
-          // Removing the unsupported property that was causing TypeScript errors
         },
         preferCurrentTab: true,
       } as any); // Use type assertion to allow preferCurrentTab
@@ -39,119 +38,91 @@ export function useScreenRecording() {
       const audioDestination = audioContext.createMediaStreamDestination();
       
       // Add system audio to the stream if possible
-      const userAudio = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const audioSource = audioContext.createMediaStreamSource(userAudio);
-      audioSource.connect(audioDestination);
-      
-      // Create a combined stream with system audio and screen capture
-      const combinedTracks = [
-        ...stream.getVideoTracks(),
-        ...audioDestination.stream.getAudioTracks(),
-      ];
-      
-      const combinedStream = new MediaStream(combinedTracks);
-      
-      // Create MediaRecorder instance with higher quality
-      const mediaRecorder = new MediaRecorder(combinedStream, {
-        mimeType: 'video/webm;codecs=vp9,opus',
-        videoBitsPerSecond: 8000000, // 8 Mbps for superior quality
-        audioBitsPerSecond: 128000, // 128 kbps audio
-      });
-      
-      // Event handler for data available
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data && event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-      
-      // Event handler for recording stop
-      mediaRecorder.onstop = async () => {
-        setIsSaving(true);
+      try {
+        const userAudio = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const audioSource = audioContext.createMediaStreamSource(userAudio);
+        audioSource.connect(audioDestination);
         
-        try {
-          const blob = new Blob(recordedChunksRef.current, {
-            type: "video/webm"
-          });
-          
-          const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-          const filename = `screen-recording-${timestamp}.webm`;
-          
-          // First, offer a direct download as a backup
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          
-          // Then, upload to Supabase storage
-          toast({
-            title: "Uploading recording",
-            description: "Saving to cloud storage, please wait...",
-          });
-          
-          const { data, error } = await supabase.storage
-            .from('meeting-recordings')
-            .upload(filename, blob, {
-              contentType: 'video/webm',
-              cacheControl: '3600'
-            });
-          
-          if (error) {
-            throw error;
+        // Create a combined stream with system audio and screen capture
+        const combinedTracks = [
+          ...stream.getVideoTracks(),
+          ...audioDestination.stream.getAudioTracks(),
+        ];
+        
+        const combinedStream = new MediaStream(combinedTracks);
+        
+        // Create MediaRecorder instance with higher quality
+        const mediaRecorder = new MediaRecorder(combinedStream, {
+          mimeType: 'video/webm;codecs=vp9,opus',
+          videoBitsPerSecond: 8000000, // 8 Mbps for superior quality
+          audioBitsPerSecond: 128000, // 128 kbps audio
+        });
+      
+        // Event handler for data available
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
           }
-          
-          // Get public URL for the stored file
-          const { data: { publicUrl } } = supabase.storage
-            .from('meeting-recordings')
-            .getPublicUrl(data.path);
-          
-          toast({
-            title: "Recording saved",
-            description: "Your screen recording has been saved to cloud storage",
-          });
-          
-          // Store the recording URL in the booking table if needed
-          // This part would need to be implemented if the meeting is associated with a booking
-          
-          // Release resources
-          URL.revokeObjectURL(url);
-          stopTracks(stream);
-          stopTracks(userAudio);
-          audioContext.close();
-        } catch (error) {
-          console.error("Error processing recording:", error);
-          toast({
-            title: "Error saving recording",
-            description: "There was a problem saving your recording to cloud storage",
-            variant: "destructive"
-          });
-        } finally {
-          setIsRecording(false);
-          setIsSaving(false);
-        }
-      };
+        };
       
-      // Start recording with data collection every 200ms
-      mediaRecorder.start(200);
-      mediaRecorderRef.current = mediaRecorder;
-      recordingStartTimeRef.current = new Date();
-      setIsRecording(true);
-      
-      toast({
-        title: "Recording started",
-        description: "Your screen and audio are now being recorded in high quality",
-      });
-      
-      // Setup safety handler for when user cancels via browser UI
-      stream.getVideoTracks()[0].onended = () => {
-        if (mediaRecorderRef.current && isRecording) {
-          stopRecording();
-        }
-      };
-      
+        // Set up event handler for stopping
+        setupStopHandler(mediaRecorder, stream, userAudio, audioContext);
+        
+        // Start recording with data collection every 200ms
+        mediaRecorder.start(200);
+        mediaRecorderRef.current = mediaRecorder;
+        recordingStartTimeRef.current = new Date();
+        setIsRecording(true);
+        
+        toast({
+          title: "Recording started",
+          description: "Your screen and audio are now being recorded in high quality",
+        });
+        
+        // Setup safety handler for when user cancels via browser UI
+        stream.getVideoTracks()[0].onended = () => {
+          if (mediaRecorderRef.current && isRecording) {
+            stopRecording();
+          }
+        };
+      } catch (audioError) {
+        // If we can't get audio, just use the screen capture
+        console.warn("Could not capture system audio, recording screen only:", audioError);
+        
+        // Create MediaRecorder instance with just screen
+        const mediaRecorder = new MediaRecorder(stream, {
+          mimeType: 'video/webm;codecs=vp9',
+          videoBitsPerSecond: 8000000, // 8 Mbps for superior quality
+        });
+        
+        // Event handler for data available
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            recordedChunksRef.current.push(event.data);
+          }
+        };
+        
+        // Set up event handler for stopping
+        setupStopHandler(mediaRecorder, stream, null, audioContext);
+        
+        // Start recording with data collection every 200ms
+        mediaRecorder.start(200);
+        mediaRecorderRef.current = mediaRecorder;
+        recordingStartTimeRef.current = new Date();
+        setIsRecording(true);
+        
+        toast({
+          title: "Recording started (video only)",
+          description: "Your screen is being recorded in high quality (without audio)",
+        });
+        
+        // Setup safety handler for when user cancels via browser UI
+        stream.getVideoTracks()[0].onended = () => {
+          if (mediaRecorderRef.current && isRecording) {
+            stopRecording();
+          }
+        };
+      }
     } catch (error) {
       console.error("Error starting screen recording:", error);
       toast({
@@ -159,6 +130,112 @@ export function useScreenRecording() {
         description: "Could not start recording. Please check permissions.",
         variant: "destructive"
       });
+    }
+  };
+  
+  // Set up stop handler
+  const setupStopHandler = (
+    mediaRecorder: MediaRecorder, 
+    stream: MediaStream, 
+    userAudio: MediaStream | null, 
+    audioContext: AudioContext
+  ) => {
+    // Event handler for recording stop
+    mediaRecorder.onstop = async () => {
+      setIsSaving(true);
+      
+      try {
+        const blob = new Blob(recordedChunksRef.current, {
+          type: "video/webm"
+        });
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const filename = `screen-recording-${timestamp}.webm`;
+        
+        // First, offer a direct download as a backup
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        // Then, upload to Supabase storage
+        toast({
+          title: "Uploading recording",
+          description: "Saving to cloud storage, please wait...",
+        });
+        
+        // Make sure the bucket exists first
+        await ensureBucketExists();
+        
+        // Upload the recording
+        const { data, error } = await supabase.storage
+          .from('meeting-recordings')
+          .upload(filename, blob, {
+            contentType: 'video/webm',
+            cacheControl: '3600'
+          });
+        
+        if (error) {
+          throw error;
+        }
+        
+        // Get public URL for the stored file
+        const { data: { publicUrl } } = supabase.storage
+          .from('meeting-recordings')
+          .getPublicUrl(data.path);
+        
+        toast({
+          title: "Recording saved",
+          description: "Your screen recording has been saved to cloud storage",
+        });
+        
+        // Store the recording URL in the booking table if needed
+        // This part would need to be implemented if the meeting is associated with a booking
+        
+        // Release resources
+        URL.revokeObjectURL(url);
+        stopTracks(stream);
+        if (userAudio) stopTracks(userAudio);
+        audioContext.close();
+      } catch (error) {
+        console.error("Error processing recording:", error);
+        toast({
+          title: "Error saving recording",
+          description: "There was a problem saving your recording to cloud storage",
+          variant: "destructive"
+        });
+      } finally {
+        setIsRecording(false);
+        setIsSaving(false);
+      }
+    };
+  };
+  
+  // Ensure the storage bucket exists
+  const ensureBucketExists = async () => {
+    try {
+      // Check if bucket already exists
+      const { data: buckets, error } = await supabase.rpc('get_buckets');
+      
+      // If we can't check buckets due to permissions, just try the upload directly
+      if (error) {
+        console.warn("Could not check if bucket exists, will try upload directly:", error);
+        return;
+      }
+      
+      // If bucket doesn't exist in the list, it may still exist but user doesn't have permission to list
+      // The upload will fail if the bucket truly doesn't exist
+      const bucketExists = buckets && Array.isArray(buckets) && 
+        buckets.some(bucket => bucket.name === 'meeting-recordings');
+      
+      if (!bucketExists) {
+        console.warn("Bucket 'meeting-recordings' may not exist. Upload might fail.");
+      }
+    } catch (checkError) {
+      console.warn("Error checking bucket existence:", checkError);
     }
   };
   
