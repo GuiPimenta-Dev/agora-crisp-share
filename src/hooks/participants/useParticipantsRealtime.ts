@@ -121,7 +121,7 @@ export function useParticipantsRealtime(
       });
     }
 
-    // Handle DELETE event
+    // Handle DELETE event - Fixed TypeScript errors here
     function handleDeleteEvent(deletedParticipant: Record<string, any>) {
       const userId = deletedParticipant.user_id;
       
