@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from "react";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { Monitor, Share2, Shield, AlertCircle, Maximize2, Minimize2, Zap } from "lucide-react";
@@ -30,12 +31,16 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
       // Play the video track in the container
       const remoteVideoElement = document.getElementById("remote-video-player");
       if (remoteVideoElement) {
-        remoteScreenUser.videoTrack.play();
-        // Move the video player to our container
-        const playerElement = document.querySelector('.agora_video_player');
-        if (playerElement && remoteVideoElement) {
-          remoteVideoElement.appendChild(playerElement);
-        }
+        // Fixed: play() expects element ID string as parameter
+        remoteScreenUser.videoTrack.play("remote-video-player");
+        
+        // Move the video player to our container if needed
+        setTimeout(() => {
+          const playerElement = document.querySelector('.agora_video_player');
+          if (playerElement && remoteVideoElement && playerElement.parentElement !== remoteVideoElement) {
+            remoteVideoElement.appendChild(playerElement);
+          }
+        }, 100);
       }
       
       // Try to determine resolution
@@ -51,6 +56,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
       
       const statsInterval = setInterval(() => {
         if (remoteScreenUser.videoTrack) {
+          // Fixed: getStats() doesn't need arguments, it takes a callback
           remoteScreenUser.videoTrack.getStats(onStats);
         }
       }, 5000);
@@ -70,12 +76,16 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
       // Play the video track in the container
       const localVideoElement = document.getElementById("local-video-player");
       if (localVideoElement) {
-        agoraState.screenVideoTrack.play();
-        // Move the video player to our container
-        const playerElement = document.querySelector('.agora_video_player');
-        if (playerElement && localVideoElement) {
-          localVideoElement.appendChild(playerElement);
-        }
+        // Fixed: play() expects element ID string as parameter
+        agoraState.screenVideoTrack.play("local-video-player");
+        
+        // Move the video player to our container if needed
+        setTimeout(() => {
+          const playerElement = document.querySelector('.agora_video_player');
+          if (playerElement && localVideoElement && playerElement.parentElement !== localVideoElement) {
+            localVideoElement.appendChild(playerElement);
+          }
+        }, 100);
       }
       
       // Try to determine local resolution
@@ -91,6 +101,7 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
       
       const statsInterval = setInterval(() => {
         if (agoraState.screenVideoTrack) {
+          // Fixed: getStats() needs a callback parameter
           agoraState.screenVideoTrack.getStats(onStats);
         }
       }, 5000);
@@ -192,7 +203,6 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
             </Badge>
           </div>
 
-          {/* Maximizar/minimizar button - more prominent */}
           <Button 
             variant="secondary" 
             size="icon"
