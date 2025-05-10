@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from "react";
 import { IAgoraRTCRemoteUser } from "agora-rtc-sdk-ng";
 import { Monitor, Share2, Shield, AlertCircle, Maximize2, Minimize2, Zap } from "lucide-react";
@@ -27,8 +28,8 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   // Handle remote screen share
   useEffect(() => {
     if (remoteScreenUser && remoteScreenUser.videoTrack && remoteVideoRef.current) {
-      // Fix: Remove the argument from play()
-      remoteScreenUser.videoTrack.play(remoteVideoRef.current.id);
+      // Use the correct play method without arguments
+      remoteScreenUser.videoTrack.play();
       
       // Try to determine resolution
       const onStats = (stats: any) => {
@@ -57,8 +58,8 @@ const ScreenShareView: React.FC<ScreenShareViewProps> = ({
   // Handle local screen share
   useEffect(() => {
     if (localSharing && agoraState.screenVideoTrack && localVideoRef.current) {
-      // Fix: Remove the argument from play()
-      agoraState.screenVideoTrack.play(localVideoRef.current.id);
+      // Use the correct play method without arguments
+      agoraState.screenVideoTrack.play();
       
       // Try to determine local resolution
       const onStats = (stats: any) => {
